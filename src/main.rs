@@ -1,7 +1,15 @@
-use clap::{Parser, Subcommand, Args, Command};
-use colored::Colorize;
-use serde_derive::{Serialize, Deserialize};
+use std::fs;
 
+use clap::{Args, Parser, Subcommand};
+use colored::Colorize;
+
+use crate::boots_config::config::{BootsConfig};
+
+mod boots_config;
+
+const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
+const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
+const OS_PLATFORM: &str = std::env::consts::OS;
 
 fn main() {
     let cli = Cli::init();
@@ -10,35 +18,16 @@ fn main() {
         .filter_level(cli.args.verbosity.log_level_filter())
         .parse_default_env()
         .init();
+    log::debug!("{cli:#?}");
 
-    log::info!("{cli:#?}");
+    // Somehow need to merge the cli arguments with the config file to allow for overriding values
+    // with flags for testing.
+    let boots_config: BootsConfig = serde_yaml::from_str(&fs::read_to_string(&cli.args.boots_config_path).unwrap()).unwrap();
+    log::debug!("{PROJ_NAME}_config: {:#?}", boots_config);
+
+    println!("{}", serde_yaml::to_string::<BootsConfig>(&boots_config).unwrap());
+
 }
-
-#[derive(Serialize, Deserialize, Debug)]
-struct BootsConfig {
-    version: String,
-    project_name: String,
-    project_info: ProjectTypes,
-
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "project_type", content = "project_config")]
-enum ProjectTypes {
-    NPM {
-        allowed_targets: Vec<ArtifactTargets>,
-    },
-    YARN {
-        allowed_targets: Vec<ArtifactTargets>,
-    },
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-enum ArtifactTargets {
-    Image,
-    Tarball,
-}
-
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -47,9 +36,9 @@ enum ArtifactTargets {
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
-   
+
     #[clap(flatten)]
-    args: SharedArgs
+    args: SharedArgs,
 }
 
 impl Cli {
@@ -59,39 +48,47 @@ impl Cli {
     }
 
     fn print_version_string() {
-        let name = env!("CARGO_PKG_NAME");
-        let version = env!("CARGO_PKG_VERSION");
-        let platform = std::env::consts::OS;
-        println!("{}{}{} {} {}\n", name.blue(), "@".green(), version.blue(), "on".green(), platform.blue());
+        println!(
+            "{}{}{} {} {}\n",
+            PROJ_NAME.blue(),
+            "@".green(),
+            PROJ_VERSION.blue(),
+            "on".green(),
+            OS_PLATFORM.blue()
+        );
     }
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
     #[clap(subcommand)]
-    Build(BuildCommands)
+    Build(BuildCommands),
 }
 
 #[derive(Subcommand, Debug)]
 enum BuildCommands {
     Test {
         #[clap(short, long)]
-        metadata: String
+        metadata: String,
     },
     Package {
         #[clap(short, long)]
-        metadata: String
+        metadata: String,
     },
     Lint {
         #[clap(short, long)]
-        metadata: String
+        metadata: String,
     },
 }
 
 #[derive(Args, Debug)]
 struct SharedArgs {
-
-    #[clap(flatten)] 
+    #[clap(flatten)]
     verbosity: clap_verbosity_flag::Verbosity,
-}
 
+    #[arg(short, long, default_value = "./boots_cfg.yml")]
+    boots_config_path: String,
+
+    #[arg(short, long, default_value = ".")]
+    project_root: String,
+}

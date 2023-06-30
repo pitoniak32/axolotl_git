@@ -1,0 +1,11 @@
+version: 0.1.0
+project-name: boots-cli
+spec:
+  type: npm
+  npm-version: 8.2.1
+  image-config:
+    name: boots-cli
+    tags:
+      - latest
+  bundle-config:
+    version: 0.1.0
