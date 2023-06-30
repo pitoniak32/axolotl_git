@@ -3,7 +3,7 @@ use std::fs;
 use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 
-use crate::boots_config::config::{BootsConfig};
+use crate::boots_config::config::BootsConfig;
 
 mod boots_config;
 

@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "kebab-case")]
 pub struct BootsConfig {
-    pub version: String,
+    pub boots_version: String,
     pub project_name: String,
     pub spec: ProjectTypes,
 }
@@ -16,26 +16,59 @@ pub struct BootsConfig {
 #[serde(rename_all = "kebab-case")]
 pub enum ProjectTypes {
     #[serde(rename_all = "kebab-case")]
-    Npm {
-        npm_version: Option<String>,
+    Rust {
+        cargo_version: Option<String>,
+        artifact_targets: Vec<ArtifactTargets>,
     },
     #[serde(rename_all = "kebab-case")]
-    Yarn {},
-}
-
-impl ProjectTypes {
-    fn get_allowed_targets(project_type: ProjectTypes) -> Vec<ArtifactTargets>{
-        match project_type {
-            ProjectTypes::Npm {..} => vec![ArtifactTargets::Image, ArtifactTargets::Tarball],
-            ProjectTypes::Yarn {..} => vec![ArtifactTargets::Image],
-        }
-    }
+    Npm {
+        npm_version: Option<String>,
+        artifact_targets: Vec<ArtifactTargets>,
+    },
+    #[serde(rename_all = "kebab-case")]
+    Yarn {
+        yarn_version: Option<String>,
+        artifact_targets: Vec<ArtifactTargets>,
+    },
+    #[serde(rename_all = "kebab-case")]
+    Go {
+        make_version: Option<String>,
+        artifact_targets: Vec<ArtifactTargets>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "target_type")]
+#[serde(tag = "target-type")]
 #[serde(rename_all = "kebab-case")]
 pub enum ArtifactTargets {
-    Image,
+    #[serde(rename_all = "kebab-case")]
+    Image {
+        tagging_config: TaggingConfig,
+    },
+    #[serde(rename_all = "kebab-case")]
     Tarball,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "kebab-case")]
+pub struct TaggingConfig {
+    tags: Vec<LegalTags>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "kebab-case")]
+enum LegalTags {
+    Latest,
+    BuildId,
+    CommitHash,
+    #[serde(rename = "major")]
+    SemVerMajor,
+    #[serde(rename = "minor")]
+    SemVerMinor,
+    #[serde(rename = "patch")]
+    SemVerPatch,
+    #[serde(rename = "major-minor")]
+    SemVerMajorMinor,
+    #[serde(rename = "major-minor-patch")]
+    SemVerMajorMinorPatch,
 }
