@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand, Args, Command};
 use colored::Colorize;
+use serde_derive::{Serialize, Deserialize};
 
 
 fn main() {
@@ -11,6 +12,31 @@ fn main() {
         .init();
 
     log::info!("{cli:#?}");
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct BootsConfig {
+    version: String,
+    project_name: String,
+    project_info: ProjectTypes,
+
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "project_type", content = "project_config")]
+enum ProjectTypes {
+    NPM {
+        allowed_targets: Vec<ArtifactTargets>,
+    },
+    YARN {
+        allowed_targets: Vec<ArtifactTargets>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+enum ArtifactTargets {
+    Image,
+    Tarball,
 }
 
 
