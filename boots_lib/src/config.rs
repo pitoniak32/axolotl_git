@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Command Line Flags Should Overtake File Values.
 /// How can I show that a config option is available
@@ -11,10 +11,24 @@ pub struct BootsConfig {
     pub spec: ProjectTypes,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 #[serde(rename_all = "kebab-case")]
 pub enum ProjectTypes {
+    #[serde(rename_all = "kebab-case")]
+    Rust,
+    #[serde(rename_all = "kebab-case")]
+    Npm,
+    #[serde(rename_all = "kebab-case")]
+    Yarn,
+    #[serde(rename_all = "kebab-case")]
+    Go,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type")]
+#[serde(rename_all = "kebab-case")]
+pub enum ProjectOptions {
     #[serde(rename_all = "kebab-case")]
     Rust {
         cargo_version: Option<String>,
@@ -37,25 +51,23 @@ pub enum ProjectTypes {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "target-type")]
 #[serde(rename_all = "kebab-case")]
 pub enum ArtifactTargets {
     #[serde(rename_all = "kebab-case")]
-    Image {
-        tagging_config: TaggingConfig,
-    },
+    Image { tagging_config: TaggingConfig },
     #[serde(rename_all = "kebab-case")]
     Tarball,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct TaggingConfig {
-    tags: Vec<LegalTags>
+    tags: Vec<LegalTags>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 enum LegalTags {
     Latest,

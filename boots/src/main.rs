@@ -1,8 +1,8 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use std::fs;
 
-use boots_lib::config::BootsConfig;
-use clap::{Args, Parser, Subcommand};
+use boots_lib::{config::BootsConfig, fingerprint::FingerprintOptions};
+use clap::{Args, Command, Parser, Subcommand};
 use colored::Colorize;
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
@@ -14,23 +14,18 @@ const DASHES: &str = "--------------------------------";
 fn main() -> Result<()> {
     // Somehow need to merge the cli arguments with the config file to allow for overriding values
     // with flags for testing.
-    match Cli::init() {
-        Ok(cli) => match cli.handle_command() {
-            Ok(_) => {
-                log::trace!("Successful!");
-            },
-            Err(e) => {
-                log::error!(
-                    "An error occured while handing command: {e:#?}"
-                );
-                std::process::exit(1);
-            }
-        },
-        Err(e) => {
-            log::error!("An error occured during cli initalization: {e:#?}");
-            std::process::exit(1);
-        }
-    }
+    let cli = Cli::init()?;
+
+    let boots_config: BootsConfig =
+        serde_yaml::from_str(&fs::read_to_string(&cli.args.boots_config_path).unwrap()).unwrap();
+    log::trace!("{PROJ_NAME}_config: {:#?}", boots_config);
+
+    log::debug!(
+        "{}",
+        serde_yaml::to_string::<BootsConfig>(&boots_config).unwrap()
+    );
+
+    Cli::handle_command(cli.command)?;
 
     Ok(())
 }
@@ -39,18 +34,29 @@ fn main() -> Result<()> {
 #[command(author, version, about)]
 #[command(propagate_version = true)]
 #[command(arg_required_else_help = true)]
+#[deny(missing_docs)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
     #[clap(flatten)]
     args: SharedArgs,
+
+    #[clap(skip)]
+    context: BootsContext,
+}
+
+#[derive(Debug, Default)]
+struct BootsContext {
+    boots_config_path: String,
+    git_commit_hash: String,
+    build_id: String,
 }
 
 impl Cli {
     fn init() -> Result<Self> {
         Cli::print_version_string();
-        let cli = Cli::parse();
+        let mut cli = Cli::parse();
 
         env_logger::builder()
             .filter_level(cli.args.verbosity.log_level_filter())
@@ -65,6 +71,12 @@ impl Cli {
             "boots_config_file",
             serde_yaml::to_string::<BootsConfig>(&boots_config)?,
         );
+
+        cli.context = BootsContext {
+            boots_config_path: cli.args.boots_config_path.clone(),
+            git_commit_hash: "".to_string(),
+            build_id: "".to_string(),
+        };
 
         Ok(cli)
     }
@@ -84,27 +96,16 @@ impl Cli {
         log::debug!("\n{title}:\n{DASHES}\n{content}{DASHES}");
     }
 
-    fn handle_command(&self) -> Result<()> {
-        let command = self.command.as_ref().unwrap();
-        match command {
-            Commands::Build(build_command) => {
-                log::trace!("building...");
-                match build_command {
-                    BuildCommands::Test { metadata } => {
-                        log::trace!("testing... {:#?}", metadata);
-                        return Err(anyhow!("test failure"));
-                    },
-                    BuildCommands::Package { metadata } => {
-                        log::trace!("packaging... {:#?}", metadata)
-                    },
-                    BuildCommands::Lint { metadata } => {
-                        log::trace!("linting... {:#?}", metadata)
-                    },
-                }
-            }
-            Commands::Fingerprint => {
-                println!("fingerprinting...")
-            }
+    fn handle_command(command: Option<Commands>) -> Result<()> {
+        if let Some(cmd) = command {
+            Commands::handle(cmd)?;
+        } else {
+            println!(
+                "{}",
+                "No command was provided! To see commands use `--help`."
+                    .yellow()
+                    .bold()
+            );
         }
         Ok(())
     }
@@ -112,10 +113,36 @@ impl Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    /// Commands related to building projects
     #[clap(subcommand)]
     Build(BuildCommands),
+    /// Determine what type of project is being built.
+    Fingerprint(FingerprintOptions),
+}
 
-    Fingerprint,
+impl Commands {
+    fn handle(command: Commands) -> Result<()> {
+        match command {
+            Commands::Build(build_command) => {
+                log::trace!("building...");
+                match build_command {
+                    BuildCommands::Test { metadata } => {
+                        log::trace!("testing... {:#?}", metadata)
+                    }
+                    BuildCommands::Package { metadata } => {
+                        log::trace!("packaging... {:#?}", metadata)
+                    }
+                    BuildCommands::Lint { metadata } => {
+                        log::trace!("linting... {:#?}", metadata)
+                    }
+                }
+            }
+            Commands::Fingerprint(opts) => {
+                println!("fingerprinting... {opts:#?}")
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Subcommand, Debug)]
