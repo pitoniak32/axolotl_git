@@ -1,5 +1,5 @@
+use anyhow::{Result, anyhow};
 use std::fs;
-use anyhow::Result;
 
 use boots_lib::config::BootsConfig;
 use clap::{Args, Parser, Subcommand};
@@ -9,24 +9,28 @@ const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
 const OS_PLATFORM: &str = std::env::consts::OS;
 
+const DASHES: &str = "--------------------------------";
+
 fn main() -> Result<()> {
-    let cli = Cli::init();
-
-    env_logger::builder()
-        .filter_level(cli.args.verbosity.log_level_filter())
-        .parse_default_env()
-        .init();
-    log::trace!("{cli:#?}");
-
     // Somehow need to merge the cli arguments with the config file to allow for overriding values
     // with flags for testing.
-
-    let boots_config: BootsConfig = serde_yaml::from_str(&fs::read_to_string(&cli.args.boots_config_path).unwrap()).unwrap();
-    log::trace!("{PROJ_NAME}_config: {:#?}", boots_config);
-
-    log::debug!("{}", serde_yaml::to_string::<BootsConfig>(&boots_config).unwrap());
-
-    Cli::handle_command(cli.command.unwrap())?;
+    match Cli::init() {
+        Ok(cli) => match cli.handle_command() {
+            Ok(_) => {
+                log::trace!("Successful!");
+            },
+            Err(e) => {
+                log::error!(
+                    "An error occured while handing command: {e:#?}"
+                );
+                std::process::exit(1);
+            }
+        },
+        Err(e) => {
+            log::error!("An error occured during cli initalization: {e:#?}");
+            std::process::exit(1);
+        }
+    }
 
     Ok(())
 }
@@ -44,9 +48,25 @@ struct Cli {
 }
 
 impl Cli {
-    fn init() -> Self {
+    fn init() -> Result<Self> {
         Cli::print_version_string();
-        Cli::parse()
+        let cli = Cli::parse();
+
+        env_logger::builder()
+            .filter_level(cli.args.verbosity.log_level_filter())
+            .parse_default_env()
+            .init();
+        log::trace!("{cli:#?}");
+
+        let boots_config: BootsConfig =
+            serde_yaml::from_str(&fs::read_to_string(&cli.args.boots_config_path)?)?;
+        log::trace!("{PROJ_NAME}_config: {:#?}", boots_config);
+        Cli::debug_file(
+            "boots_config_file",
+            serde_yaml::to_string::<BootsConfig>(&boots_config)?,
+        );
+
+        Ok(cli)
     }
 
     fn print_version_string() {
@@ -60,13 +80,19 @@ impl Cli {
         );
     }
 
-    fn handle_command(command: Commands) -> Result<()> {
+    fn debug_file(title: &str, content: String) {
+        log::debug!("\n{title}:\n{DASHES}\n{content}{DASHES}");
+    }
+
+    fn handle_command(&self) -> Result<()> {
+        let command = self.command.as_ref().unwrap();
         match command {
             Commands::Build(build_command) => {
                 log::trace!("building...");
                 match build_command {
                     BuildCommands::Test { metadata } => {
-                        log::trace!("testing... {:#?}", metadata)
+                        log::trace!("testing... {:#?}", metadata);
+                        return Err(anyhow!("test failure"));
                     },
                     BuildCommands::Package { metadata } => {
                         log::trace!("packaging... {:#?}", metadata)
@@ -75,10 +101,10 @@ impl Cli {
                         log::trace!("linting... {:#?}", metadata)
                     },
                 }
-            },
+            }
             Commands::Fingerprint => {
                 println!("fingerprinting...")
-            }, 
+            }
         }
         Ok(())
     }
