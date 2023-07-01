@@ -1,32 +1,34 @@
 use std::fs;
+use anyhow::Result;
 
+use boots_lib::config::BootsConfig;
 use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
-
-use crate::boots_config::config::BootsConfig;
-
-mod boots_config;
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
 const OS_PLATFORM: &str = std::env::consts::OS;
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::init();
 
     env_logger::builder()
         .filter_level(cli.args.verbosity.log_level_filter())
         .parse_default_env()
         .init();
-    log::debug!("{cli:#?}");
+    log::trace!("{cli:#?}");
 
     // Somehow need to merge the cli arguments with the config file to allow for overriding values
     // with flags for testing.
+
     let boots_config: BootsConfig = serde_yaml::from_str(&fs::read_to_string(&cli.args.boots_config_path).unwrap()).unwrap();
-    log::debug!("{PROJ_NAME}_config: {:#?}", boots_config);
+    log::trace!("{PROJ_NAME}_config: {:#?}", boots_config);
 
-    println!("{}", serde_yaml::to_string::<BootsConfig>(&boots_config).unwrap());
+    log::debug!("{}", serde_yaml::to_string::<BootsConfig>(&boots_config).unwrap());
 
+    Cli::handle_command(cli.command.unwrap())?;
+
+    Ok(())
 }
 
 #[derive(Parser, Debug)]
@@ -57,12 +59,37 @@ impl Cli {
             OS_PLATFORM.blue()
         );
     }
+
+    fn handle_command(command: Commands) -> Result<()> {
+        match command {
+            Commands::Build(build_command) => {
+                log::trace!("building...");
+                match build_command {
+                    BuildCommands::Test { metadata } => {
+                        log::trace!("testing... {:#?}", metadata)
+                    },
+                    BuildCommands::Package { metadata } => {
+                        log::trace!("packaging... {:#?}", metadata)
+                    },
+                    BuildCommands::Lint { metadata } => {
+                        log::trace!("linting... {:#?}", metadata)
+                    },
+                }
+            },
+            Commands::Fingerprint => {
+                println!("fingerprinting...")
+            }, 
+        }
+        Ok(())
+    }
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
     #[clap(subcommand)]
     Build(BuildCommands),
+
+    Fingerprint,
 }
 
 #[derive(Subcommand, Debug)]
