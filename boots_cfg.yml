@@ -1,4 +1,4 @@
-boots-version: 0.1.0
+version: 0.1.0
 project-name: boots-cli
 spec:
   type: rust 

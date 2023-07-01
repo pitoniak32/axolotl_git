@@ -1,4 +1,6 @@
 use anyhow::{anyhow, Result};
+use bat::{Input, PrettyPrinter};
+use serde::{Deserialize, Serialize};
 use std::fs;
 
 use boots_lib::{config::BootsConfig, fingerprint::FingerprintOptions};
@@ -15,15 +17,6 @@ fn main() -> Result<()> {
     // Somehow need to merge the cli arguments with the config file to allow for overriding values
     // with flags for testing.
     let cli = Cli::init()?;
-
-    let boots_config: BootsConfig =
-        serde_yaml::from_str(&fs::read_to_string(&cli.args.boots_config_path).unwrap()).unwrap();
-    log::trace!("{PROJ_NAME}_config: {:#?}", boots_config);
-
-    log::debug!(
-        "{}",
-        serde_yaml::to_string::<BootsConfig>(&boots_config).unwrap()
-    );
 
     Cli::handle_command(cli.command)?;
 
@@ -46,9 +39,10 @@ struct Cli {
     context: BootsContext,
 }
 
-#[derive(Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct BootsContext {
     boots_config_path: String,
+    boots_config: BootsConfig,
     git_commit_hash: String,
     build_id: String,
 }
@@ -67,16 +61,19 @@ impl Cli {
         let boots_config: BootsConfig =
             serde_yaml::from_str(&fs::read_to_string(&cli.args.boots_config_path)?)?;
         log::trace!("{PROJ_NAME}_config: {:#?}", boots_config);
-        Cli::debug_file(
-            "boots_config_file",
-            serde_yaml::to_string::<BootsConfig>(&boots_config)?,
-        );
+        // Cli::debug_file(
+        //     "boots_config_file",
+        //     serde_yaml::to_string(value)<BootsConfig>(&boots_config)?,
+        // );
 
-        cli.context = BootsContext {
+        let context = BootsContext {
             boots_config_path: cli.args.boots_config_path.clone(),
+            boots_config: boots_config.clone(),
             git_commit_hash: "".to_string(),
             build_id: "".to_string(),
         };
+        Cli::debug_file(&context.boots_config_path);
+        cli.context = context;
 
         Ok(cli)
     }
@@ -92,8 +89,16 @@ impl Cli {
         );
     }
 
-    fn debug_file(title: &str, content: String) {
-        log::debug!("\n{title}:\n{DASHES}\n{content}{DASHES}");
+    fn debug_file(file_path: &str) {
+        PrettyPrinter::new()
+            .line_numbers(false)
+            .grid(false)
+            .header(false)
+            .input_file(file_path)
+            .print()
+            .unwrap();
+        println!();
+        // log::debug!("\n{title}:\n{DASHES}\n{content}{DASHES}");
     }
 
     fn handle_command(command: Option<Commands>) -> Result<()> {

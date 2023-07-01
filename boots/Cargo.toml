@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+boots_lib = { path = "../boots_lib" }
 clap = { version = "4.3.10", features = ["derive", "env", "color"] }
 clap-verbosity-flag = "2.0.1"
+anyhow = "1.0.71"
 colored = "2.0.0"
 env_logger = "0.10.0"
 log = "0.4.19"
@@ -15,6 +17,4 @@ serde = { version = "1.0.164", features = ["derive"] }
 serde_derive = "1.0.164"
 serde_json = "1.0.99"
 serde_yaml = "0.9.22"
-
-boots_lib = { path = "../boots_lib" }
-anyhow = "1.0.71"
+bat = "0.23.0"

@@ -3,15 +3,15 @@ use serde::{Deserialize, Serialize};
 /// Command Line Flags Should Overtake File Values.
 /// How can I show that a config option is available
 /// in the config file and in the cli flags?
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct BootsConfig {
-    pub boots_version: String,
+    pub version: String,
     pub project_name: String,
     pub spec: ProjectTypes,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(tag = "type")]
 #[serde(rename_all = "kebab-case")]
 pub enum ProjectTypes {
@@ -23,6 +23,8 @@ pub enum ProjectTypes {
     Yarn,
     #[serde(rename_all = "kebab-case")]
     Go,
+    #[default]
+    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
