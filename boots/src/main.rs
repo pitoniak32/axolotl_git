@@ -90,13 +90,18 @@ impl Cli {
     }
 
     fn debug_file(file_path: &str) {
+        // for t in PrettyPrinter::new().themes() {
+        //     println!("theme: {t}");
         PrettyPrinter::new()
             .line_numbers(false)
             .grid(false)
             .header(false)
             .input_file(file_path)
+            .theme("Nord")
             .print()
             .unwrap();
+        // }
+
         println!();
         // log::debug!("\n{title}:\n{DASHES}\n{content}{DASHES}");
     }
