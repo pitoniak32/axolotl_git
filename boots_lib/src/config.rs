@@ -25,6 +25,7 @@ impl BootsConfig {
             wf_config = Some(serde_yaml::from_str::<WorkflowConfig>(
                 &fs::read_to_string(wf_path)?,
             )?);
+            log::info!("{:#?}", wf_config);
         };
         boots_config.workflow_config =
             WorkflowConfig::merge(boots_config.workflow_config, wf_config);
@@ -95,6 +96,7 @@ impl WorkflowConfig {
             (None, Some(wf_file)) => Some(wf_file),
             (Some(wf_inline), None) => Some(wf_inline),
             (Some(wf_inline), Some(wf_file)) => {
+                log::debug!("merging workflow configs");
                 // Read the config file
                 let mut merged = WorkflowConfig {
                     steps: wf_inline.steps.iter().fold(
