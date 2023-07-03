@@ -1,17 +1,18 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use bat::{Input, PrettyPrinter};
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::{any, fs};
 
-use boots_lib::{config::BootsConfig, fingerprint::FingerprintOptions};
-use clap::{Args, Command, Parser, Subcommand};
+use boots_lib::{
+    config::{BootsConfig, WorkflowConfig},
+    fingerprint::FingerprintOptions,
+};
+use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
 const OS_PLATFORM: &str = std::env::consts::OS;
-
-const DASHES: &str = "--------------------------------";
 
 fn main() -> Result<()> {
     // Somehow need to merge the cli arguments with the config file to allow for overriding values
@@ -56,15 +57,13 @@ impl Cli {
             .filter_level(cli.args.verbosity.log_level_filter())
             .parse_default_env()
             .init();
-        log::trace!("{cli:#?}");
+        log::debug!("cli_before: {cli:#?}");
 
-        let boots_config: BootsConfig =
-            serde_yaml::from_str(&fs::read_to_string(&cli.args.boots_config_path)?)?;
-        log::trace!("{PROJ_NAME}_config: {:#?}", boots_config);
-        // Cli::debug_file(
-        //     "boots_config_file",
-        //     serde_yaml::to_string(value)<BootsConfig>(&boots_config)?,
-        // );
+        let boots_config: BootsConfig = BootsConfig::new(&cli.args.boots_config_path)?;
+        Cli::print_yaml_string(
+            serde_yaml::to_string(&boots_config)
+                .expect("Should be able to convert struct to yaml string"),
+        );
 
         let context = BootsContext {
             boots_config_path: cli.args.boots_config_path.clone(),
@@ -72,8 +71,8 @@ impl Cli {
             git_commit_hash: "".to_string(),
             build_id: "".to_string(),
         };
-        Cli::debug_file(&context.boots_config_path);
         cli.context = context;
+        log::debug!("cli_after: {:#?}", cli);
 
         Ok(cli)
     }
@@ -89,21 +88,18 @@ impl Cli {
         );
     }
 
-    fn debug_file(file_path: &str) {
-        // for t in PrettyPrinter::new().themes() {
-        //     println!("theme: {t}");
+    fn print_yaml_string(content: String) {
+        let bytes = content.as_bytes();
         PrettyPrinter::new()
+            .language("yaml")
             .line_numbers(false)
             .grid(false)
             .header(false)
-            .input_file(file_path)
             .theme("Nord")
+            .input_from_bytes(bytes)
             .print()
             .unwrap();
-        // }
-
         println!();
-        // log::debug!("\n{title}:\n{DASHES}\n{content}{DASHES}");
     }
 
     fn handle_command(command: Option<Commands>) -> Result<()> {
@@ -176,7 +172,7 @@ struct SharedArgs {
     #[clap(flatten)]
     verbosity: clap_verbosity_flag::Verbosity,
 
-    #[arg(short, long, default_value = "./boots_cfg.yml")]
+    #[arg(short, long, default_value = "./boots_cfg_example.yml")]
     boots_config_path: String,
 
     #[arg(short, long, default_value = ".")]

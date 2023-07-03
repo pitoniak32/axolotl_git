@@ -1,0 +1,15 @@
+project-name: boots-cli-draft
+pkg_man_ver: 1.70.0
+workflow-config-path: ./workflow-config-draft.yml
+workflow-config:
+  env:
+    RUST_LOG: info
+    TEST_ENV: false
+  steps:
+    - type: package
+      env:
+        RUST_LOG: debug
+        TEST_ENV: true
+    - type: lint
+    - type: test
+    - type: publish

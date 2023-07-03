@@ -1,0 +1,12 @@
+workflow-config:
+  env:
+    RUST_LOG: info
+    TEST_ENV: false
+  steps:
+    - type: package
+      env:
+        RUST_LOG: debug
+        TEST_ENV: true
+    - type: lint
+    - type: test
+    - type: publish

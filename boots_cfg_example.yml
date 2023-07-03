@@ -1,0 +1,20 @@
+project-name: boots-cli
+package-manager-version: 1.70.0
+artifact-targets:
+  - target-type: image
+    tagging-config:
+      tags:
+        - latest
+        - patch
+        - minor
+        - major
+        - major-minor
+        - major-minor-patch-build-id
+        - commit-hash
+        - build-id
+    name: boots-cli
+    tags:
+      - latest
+  - target-type: tarball
+bundle-config:
+  version: 0.1.0

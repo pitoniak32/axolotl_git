@@ -2,5 +2,6 @@
 members = [
  "boots",
  "boots_lib",
+ "boots_derive",
 ]
 
