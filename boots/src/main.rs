@@ -1,12 +1,8 @@
 use anyhow::Result;
-use bat::{Input, PrettyPrinter};
+use bat::PrettyPrinter;
 use serde::{Deserialize, Serialize};
-use std::{any, fs};
 
-use boots_lib::{
-    config::{BootsConfig, WorkflowConfig},
-    fingerprint::FingerprintOptions,
-};
+use boots_lib::{config::BootsConfig, fingerprint::FingerprintOptions};
 use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 
