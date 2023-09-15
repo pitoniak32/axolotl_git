@@ -1,5 +1,5 @@
 [package]
-name = "boots_lib"
+name = "axl_lib"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,7 +11,7 @@ clap = { version = "4.3.10", features = ["derive", "env"] }
 serde = { version = "1.0.164", features = ["derive"] }
 serde_derive = "1.0.164"
 
-boots_derive = { path = "../boots_derive" }
+axl_derive = { path = "../axl_derive" }
 derive_more = "0.99.17"
 serde_yaml = "0.9.22"
 log = "0.4.19"

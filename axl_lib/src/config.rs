@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::{collections::HashMap, fs, vec};
+use std::{collections::HashMap, fs};
 
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// in the config file and in the cli flags?
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "kebab-case")]
-pub struct BootsConfig {
+pub struct AxlConfig {
     pub project_name: String,
     pub workflow_config: Option<WorkflowConfig>,
     pub workflow_config_path: Option<String>,
@@ -16,21 +16,20 @@ pub struct BootsConfig {
     pub project_spec: ProjectOptions,
 }
 
-impl BootsConfig {
+impl AxlConfig {
     pub fn new(path: &str) -> Result<Self> {
-        let mut boots_config: BootsConfig = serde_yaml::from_str(&fs::read_to_string(path)?)?;
-        log::debug!("boots_config_before: {:#?}", &boots_config);
+        let mut axl_config: AxlConfig = serde_yaml::from_str(&fs::read_to_string(path)?)?;
+        log::debug!("axl_config_before: {:#?}", &axl_config);
         let mut wf_config = None;
-        if let Some(wf_path) = boots_config.workflow_config_path.clone() {
+        if let Some(wf_path) = axl_config.workflow_config_path.clone() {
             wf_config = Some(serde_yaml::from_str::<WorkflowConfig>(
                 &fs::read_to_string(wf_path)?,
             )?);
             log::info!("{:#?}", wf_config);
         };
-        boots_config.workflow_config =
-            WorkflowConfig::merge(boots_config.workflow_config, wf_config);
-        log::debug!("boots_config_after: {:#?}", &boots_config);
-        Ok(boots_config)
+        axl_config.workflow_config = WorkflowConfig::merge(axl_config.workflow_config, wf_config);
+        log::debug!("axl_config_after: {:#?}", &axl_config);
+        Ok(axl_config)
     }
 }
 

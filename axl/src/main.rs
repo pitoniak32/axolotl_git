@@ -2,7 +2,7 @@ use anyhow::Result;
 use bat::PrettyPrinter;
 use serde::{Deserialize, Serialize};
 
-use boots_lib::{config::BootsConfig, fingerprint::FingerprintOptions};
+use axl_lib::{config::AxlConfig, fingerprint::FingerprintOptions};
 use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 
@@ -33,13 +33,13 @@ struct Cli {
     args: SharedArgs,
 
     #[clap(skip)]
-    context: BootsContext,
+    context: AxlContext,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
-struct BootsContext {
-    boots_config_path: String,
-    boots_config: BootsConfig,
+struct AxlContext {
+    config_path: String,
+    config: AxlConfig,
     git_commit_hash: String,
     build_id: String,
 }
@@ -55,15 +55,15 @@ impl Cli {
             .init();
         log::debug!("cli_before: {cli:#?}");
 
-        let boots_config: BootsConfig = BootsConfig::new(&cli.args.boots_config_path)?;
+        let axl_config: AxlConfig = AxlConfig::new(&cli.args.config_path)?;
         Cli::print_yaml_string(
-            serde_yaml::to_string(&boots_config)
+            serde_yaml::to_string(&axl_config)
                 .expect("Should be able to convert struct to yaml string"),
         );
 
-        let context = BootsContext {
-            boots_config_path: cli.args.boots_config_path.clone(),
-            boots_config: boots_config.clone(),
+        let context = AxlContext {
+            config_path: cli.args.config_path.clone(),
+            config: axl_config.clone(),
             git_commit_hash: "".to_string(),
             build_id: "".to_string(),
         };
@@ -168,8 +168,8 @@ struct SharedArgs {
     #[clap(flatten)]
     verbosity: clap_verbosity_flag::Verbosity,
 
-    #[arg(short, long, default_value = "./boots_cfg_example.yml")]
-    boots_config_path: String,
+    #[arg(short, long, default_value = "./cfg_example.yml")]
+    config_path: String,
 
     #[arg(short, long, default_value = ".")]
     project_root: String,

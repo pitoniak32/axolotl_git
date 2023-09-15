@@ -1,5 +1,5 @@
 [package]
-name = "boots_derive"
+name = "axl_derive"
 version = "0.1.0"
 edition = "2021"
 

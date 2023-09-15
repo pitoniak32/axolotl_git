@@ -108,6 +108,47 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "axl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axl_lib",
+ "bat",
+ "clap",
+ "clap-verbosity-flag",
+ "colored",
+ "env_logger",
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "serde_yaml 0.9.22",
+]
+
+[[package]]
+name = "axl_derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.22",
+]
+
+[[package]]
+name = "axl_lib"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axl_derive",
+ "clap",
+ "derive_more",
+ "log",
+ "pretty_assertions",
+ "serde",
+ "serde_derive",
+ "serde_yaml 0.9.22",
+]
+
+[[package]]
 name = "base64"
 version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,47 +211,6 @@ name = "bitflags"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "630be753d4e58660abd17930c71b647fe46c27ea6b63cc59e1e3851406972e42"
-
-[[package]]
-name = "boots"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bat",
- "boots_lib",
- "clap",
- "clap-verbosity-flag",
- "colored",
- "env_logger",
- "log",
- "serde",
- "serde_derive",
- "serde_json",
- "serde_yaml 0.9.22",
-]
-
-[[package]]
-name = "boots_derive"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn 2.0.22",
-]
-
-[[package]]
-name = "boots_lib"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "boots_derive",
- "clap",
- "derive_more",
- "log",
- "pretty_assertions",
- "serde",
- "serde_derive",
- "serde_yaml 0.9.22",
-]
 
 [[package]]
 name = "bstr"

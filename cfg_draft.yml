@@ -1,4 +1,4 @@
-project-name: boots-cli-draft
+project-name: cli-draft
 pkg_man_ver: 1.70.0
 artifact-targets:
   - target-type: image
@@ -12,7 +12,7 @@ artifact-targets:
         - major-minor-patch-build-id
         - commit-hash
         - build-id
-    name: boots-cli
+    name: axl-cli
     tags:
       - latest
   - target-type: tarball

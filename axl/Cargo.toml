@@ -1,12 +1,12 @@
 [package]
-name = "boots"
+name = "axl"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-boots_lib = { path = "../boots_lib" }
+axl_lib = { path = "../axl_lib" }
 clap = { version = "4.3.10", features = ["derive", "env", "color"] }
 clap-verbosity-flag = "2.0.1"
 anyhow = "1.0.71"

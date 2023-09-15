@@ -1,7 +1,7 @@
 [workspace]
 members = [
- "boots",
- "boots_lib",
- "boots_derive",
+ "axl",
+ "axl_lib",
+ "axl_derive",
 ]
 
