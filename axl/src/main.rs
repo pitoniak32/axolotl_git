@@ -1,8 +1,9 @@
 use anyhow::Result;
 use bat::PrettyPrinter;
 use serde::{Deserialize, Serialize};
+use rand::Rng;
 
-use axl_lib::{config::AxlConfig, fingerprint::FingerprintOptions};
+use axl_lib::{config::AxlConfig, fingerprint::FingerprintOptions, constants::ASCII_ART};
 use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 
@@ -15,7 +16,7 @@ fn main() -> Result<()> {
     // with flags for testing.
     let cli = Cli::init()?;
 
-    Cli::handle_command(cli.command)?;
+    cli.handle_command()?;
 
     Ok(())
 }
@@ -75,12 +76,13 @@ impl Cli {
 
     fn print_version_string() {
         println!(
-            "{}{}{} {} {}\n",
+            "{}{}{} {} {}\n{}\n",
             PROJ_NAME.blue(),
             "@".green(),
             PROJ_VERSION.blue(),
             "on".green(),
-            OS_PLATFORM.blue()
+            OS_PLATFORM.blue(),
+            ASCII_ART[rand::thread_rng().gen_range(0..ASCII_ART.len())],
         );
     }
 
@@ -98,9 +100,9 @@ impl Cli {
         println!();
     }
 
-    fn handle_command(command: Option<Commands>) -> Result<()> {
-        if let Some(cmd) = command {
-            Commands::handle(cmd)?;
+    fn handle_command(self) -> Result<()> {
+        if let Some(cmd) = self.command {
+            Commands::handle(cmd, self.context)?;
         } else {
             println!(
                 "{}",
@@ -123,7 +125,7 @@ enum Commands {
 }
 
 impl Commands {
-    fn handle(command: Commands) -> Result<()> {
+    fn handle(command: Commands, context: AxlContext) -> Result<()> {
         match command {
             Commands::Build(build_command) => {
                 log::trace!("building...");
