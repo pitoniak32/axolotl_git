@@ -129,17 +129,7 @@ impl Commands {
         match command {
             Commands::Build(build_command) => {
                 log::trace!("building...");
-                match build_command {
-                    BuildCommands::Test { metadata } => {
-                        log::trace!("testing... {:#?}", metadata)
-                    }
-                    BuildCommands::Package { metadata } => {
-                        log::trace!("packaging... {:#?}", metadata)
-                    }
-                    BuildCommands::Lint { metadata } => {
-                        log::trace!("linting... {:#?}", metadata)
-                    }
-                }
+                BuildCommands::handle(build_command, context)?;
             }
             Commands::Fingerprint(opts) => {
                 println!("fingerprinting... {opts:#?}")
@@ -163,6 +153,24 @@ enum BuildCommands {
         #[clap(short, long)]
         metadata: String,
     },
+}
+
+impl BuildCommands {
+
+    fn handle(command: BuildCommands, _context: AxlContext) -> Result<()> {
+        match command {
+            BuildCommands::Test { metadata } => {
+                log::trace!("testing... {:#?}", metadata)
+            }
+            BuildCommands::Package { metadata } => {
+                log::trace!("packaging... {:#?}", metadata)
+            }
+            BuildCommands::Lint { metadata } => {
+                log::trace!("linting... {:#?}", metadata)
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Args, Debug)]
