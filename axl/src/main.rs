@@ -1,11 +1,14 @@
 use anyhow::Result;
 use bat::PrettyPrinter;
-use serde::{Deserialize, Serialize};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
-use axl_lib::{config::AxlConfig, constants::ASCII_ART};
+use axl_lib::{
+    config::AxlConfig,
+    constants::{AxlColor, ASCII_ART},
+};
 use clap::{Args, Parser, Subcommand};
-use colored::Colorize;
+use colored::{Color, Colorize, CustomColor};
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -70,13 +73,20 @@ impl Cli {
 
     fn print_version_string(show_art: bool) {
         println!(
-            "{}{}{} {} {}\n{}\n",
-            PROJ_NAME.blue(),
-            "@".green(),
-            PROJ_VERSION.blue(),
-            "on".green(),
-            OS_PLATFORM.blue(),
-            if show_art { ASCII_ART[rand::thread_rng().gen_range(0..ASCII_ART.len())] } else {""},
+            "{} {}{}{} {} {} {}\n{}\n",
+            "~=".custom_color(AxlColor::HotPink.into()),
+            PROJ_NAME.custom_color(AxlColor::TiffanyBlue.into()),
+            "@".custom_color(AxlColor::HotPink.into()),
+            PROJ_VERSION.custom_color(AxlColor::TiffanyBlue.into()),
+            "on".custom_color(AxlColor::HotPink.into()),
+            OS_PLATFORM.custom_color(AxlColor::Mint.into()),
+            "=~".custom_color(AxlColor::HotPink.into()),
+            if show_art {
+                ASCII_ART[rand::thread_rng().gen_range(0..ASCII_ART.len())]
+                    .custom_color(AxlColor::TiffanyBlue.into())
+            } else {
+                "".normal()
+            },
         );
     }
 

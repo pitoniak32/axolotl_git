@@ -1,3 +1,23 @@
+use colored::CustomColor;
+
+pub enum AxlColor {
+    HotPink,
+    TiffanyBlue,
+    Mint,
+    Yellow,
+}
+
+impl From<AxlColor> for CustomColor {
+    fn from(axl_color: AxlColor) -> CustomColor {
+        match axl_color {
+            AxlColor::HotPink => CustomColor { r: 255, g: 174, b: 188},
+            AxlColor::TiffanyBlue => CustomColor { r: 160, g: 231, b: 229 },
+            AxlColor::Mint => CustomColor { r: 180, g: 248, b: 200 },
+            AxlColor::Yellow => CustomColor { r: 251, g: 231, b: 198 },
+        }
+    }
+}
+
 pub const ASCII_ART: [&str; 2] = [
 "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡏⠈⢱⠀⠀⡖⠲⣀⠀⠀⠀⠀⠀⠀⠀⠀

@@ -131,6 +131,7 @@ dependencies = [
  "anyhow",
  "axl_derive",
  "clap",
+ "colored",
  "derive_more",
  "log",
  "pretty_assertions",

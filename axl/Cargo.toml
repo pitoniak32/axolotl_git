@@ -10,7 +10,7 @@ axl_lib = { path = "../axl_lib" }
 clap = { version = "4.3.10", features = ["derive", "env", "color"] }
 clap-verbosity-flag = "2.0.1"
 anyhow = "1.0.71"
-colored = "2.0.0"
+colored = "2.0.4"
 env_logger = "0.10.0"
 log = "0.4.19"
 serde = { version = "1.0.164", features = ["derive"] }

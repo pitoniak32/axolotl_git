@@ -11,6 +11,7 @@ clap = { version = "4.3.10", features = ["derive", "env"] }
 serde = { version = "1.0.164", features = ["derive"] }
 serde_derive = "1.0.164"
 
+colored = "2.0.4"
 axl_derive = { path = "../axl_derive" }
 derive_more = "0.99.17"
 serde_yaml = "0.9.22"
