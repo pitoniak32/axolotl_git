@@ -3,7 +3,7 @@ use bat::PrettyPrinter;
 use serde::{Deserialize, Serialize};
 use rand::Rng;
 
-use axl_lib::{config::AxlConfig, fingerprint::FingerprintOptions, constants::ASCII_ART};
+use axl_lib::{config::AxlConfig, constants::ASCII_ART};
 use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 
@@ -37,26 +37,22 @@ struct Cli {
     context: AxlContext,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct AxlContext {
     config_path: String,
     config: AxlConfig,
-    git_commit_hash: String,
-    build_id: String,
 }
 
 impl Cli {
     fn init() -> Result<Self> {
-        Cli::print_version_string();
         let mut cli = Cli::parse();
-
         env_logger::builder()
             .filter_level(cli.args.verbosity.log_level_filter())
             .parse_default_env()
             .init();
-        log::debug!("cli_before: {cli:#?}");
-
+        log::debug!("cli_before_config_init: {cli:#?}");
         let axl_config: AxlConfig = AxlConfig::new(&cli.args.config_path)?;
+        Cli::print_version_string(axl_config.show_art);
         Cli::print_yaml_string(
             serde_yaml::to_string(&axl_config)
                 .expect("Should be able to convert struct to yaml string"),
@@ -65,16 +61,14 @@ impl Cli {
         let context = AxlContext {
             config_path: cli.args.config_path.clone(),
             config: axl_config.clone(),
-            git_commit_hash: "".to_string(),
-            build_id: "".to_string(),
         };
         cli.context = context;
-        log::debug!("cli_after: {:#?}", cli);
+        log::debug!("cli_after_config_init: {cli:#?}");
 
         Ok(cli)
     }
 
-    fn print_version_string() {
+    fn print_version_string(show_art: bool) {
         println!(
             "{}{}{} {} {}\n{}\n",
             PROJ_NAME.blue(),
@@ -82,7 +76,7 @@ impl Cli {
             PROJ_VERSION.blue(),
             "on".green(),
             OS_PLATFORM.blue(),
-            ASCII_ART[rand::thread_rng().gen_range(0..ASCII_ART.len())],
+            if show_art { ASCII_ART[rand::thread_rng().gen_range(0..ASCII_ART.len())] } else {""},
         );
     }
 
@@ -118,55 +112,14 @@ impl Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Commands related to building projects
-    #[clap(subcommand)]
-    Build(BuildCommands),
-    /// Determine what type of project is being built.
-    Fingerprint(FingerprintOptions),
+    Build,
 }
 
 impl Commands {
-    fn handle(command: Commands, context: AxlContext) -> Result<()> {
+    fn handle(command: Commands, _context: AxlContext) -> Result<()> {
         match command {
-            Commands::Build(build_command) => {
+            Commands::Build => {
                 log::trace!("building...");
-                BuildCommands::handle(build_command, context)?;
-            }
-            Commands::Fingerprint(opts) => {
-                println!("fingerprinting... {opts:#?}")
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Subcommand, Debug)]
-enum BuildCommands {
-    Test {
-        #[clap(short, long)]
-        metadata: String,
-    },
-    Package {
-        #[clap(short, long)]
-        metadata: String,
-    },
-    Lint {
-        #[clap(short, long)]
-        metadata: String,
-    },
-}
-
-impl BuildCommands {
-
-    fn handle(command: BuildCommands, _context: AxlContext) -> Result<()> {
-        match command {
-            BuildCommands::Test { metadata } => {
-                log::trace!("testing... {:#?}", metadata)
-            }
-            BuildCommands::Package { metadata } => {
-                log::trace!("packaging... {:#?}", metadata)
-            }
-            BuildCommands::Lint { metadata } => {
-                log::trace!("linting... {:#?}", metadata)
             }
         }
         Ok(())
