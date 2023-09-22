@@ -108,6 +108,7 @@ dependencies = [
  "clap-verbosity-flag",
  "colored",
  "env_logger",
+ "git_client",
  "log",
  "rand",
  "serde",
@@ -597,6 +598,10 @@ dependencies = [
  "log",
  "url",
 ]
+
+[[package]]
+name = "git_client"
+version = "0.1.0"
 
 [[package]]
 name = "glob"

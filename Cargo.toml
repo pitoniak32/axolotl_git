@@ -3,5 +3,6 @@ members = [
  "axl",
  "axl_lib",
  "axl_derive",
+ "git_client",
 ]
 

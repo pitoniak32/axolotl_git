@@ -1,5 +1,6 @@
 use anyhow::Result;
 use bat::PrettyPrinter;
+use git_client::{Git, PrintStdout};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +19,6 @@ fn main() -> Result<()> {
     // Somehow need to merge the cli arguments with the config file to allow for overriding values
     // with flags for testing.
     let cli = Cli::init()?;
-
     cli.handle_command()?;
 
     Ok(())
