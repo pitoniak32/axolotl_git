@@ -9,5 +9,4 @@ jobs:
     uses: pitoniak32/actions/.github/workflows/rust-gh-release.yml@main
     with:
       artifact-name: axl
-    secrets:
-      personal-access-token: ${{ secrets.PAT }}
+    secrets: inherit
