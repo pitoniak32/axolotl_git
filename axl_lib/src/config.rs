@@ -1,7 +1,6 @@
 use anyhow::Result;
-use std::fs;
-
 use serde::{Deserialize, Serialize};
+use std::{fs, path::PathBuf};
 
 const fn art_default() -> bool {
     true
@@ -39,6 +38,27 @@ impl AxlConfig {
                 axl_config_file.show_art
             },
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct MukdukConfig {
+    pub projects_dir: ProjectsDir,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct ProjectsDir {
+    pub default: Option<PathBuf>,
+    pub options: Option<Vec<PathBuf>>,
+}
+
+impl MukdukConfig {
+    pub fn from_file(config_path: &PathBuf) -> Result<Self> {
+        log::trace!("loading config from {}...", config_path.to_string_lossy());
+        let loaded_config = toml::from_str(&fs::read_to_string(config_path)?)?;
+        log::trace!("config: {:#?}", loaded_config);
+        log::trace!("config loaded!");
+        Ok(loaded_config)
     }
 }
 
