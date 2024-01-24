@@ -1,16 +1,45 @@
-[workspace]
-resolver = "2"
-members = [
- "axl",
- "axl_lib",
- "axl_derive",
-]
+[package]
+name = "axl"
+version = "0.1.0"
+edition = "2021"
 
-[workspace.dependencies]
-git_lib = { version = "0.1.0", path = "../../git_repo/git_lib" }
+[lib]
+name = "axl_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "axl"
+path = "src/main.rs"
+
+[dependencies]
+git_lib = { version = "0.1.0", path = "../git_repo/git_lib" }
+anyhow = "1.0.71"
+thiserror = "1.0.56"
+env_logger = "0.10.0"
+log = "0.4.19"
+clap = { version = "4.3.10", features = ["derive", "env", "color"] }
+clap-verbosity-flag = "2.0.1"
+serde = { version = "1.0.164", features = ["derive"] }
+serde_derive = "1.0.164"
+serde_json = "1.0.99"
+serde_yaml = "0.9.22"
+toml = "0.8.8"
+rand = "0.8.5"
+bat = "0.23.0"
+colored = "2.0.4"
+
+[dev-dependencies]
 pretty_assertions = "1.4.0"
 rstest = "0.18.2"
 rstest_reuse = "0.6.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+enum_glob_use = "deny"
+nursery = "deny"
+unwrap_used = "deny"
 
 [profile.release]
 opt-level = "z"
