@@ -7,8 +7,7 @@ members = [
 ]
 
 [workspace.dependencies]
-# git_lib = { path = "../../git_repo/git_lib" }
-git_lib = "0.1.0"
+git_lib = { version = "0.1.0", path = "../../git_repo/git_lib" }
 pretty_assertions = "1.4.0"
 rstest = "0.18.2"
 rstest_reuse = "0.6.0"
