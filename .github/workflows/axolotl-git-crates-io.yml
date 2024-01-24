@@ -3,17 +3,8 @@ on:
   release:
     types:
       - released
-  workflow_dispatch: {}
 jobs:
   publish-crate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      - uses: katyo/publish-crates@v2
-        with:
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          ignore-unpublished-changes: true
+    uses: pitoniak32/actions/.github/workflows/rust-publish-crate.yml@main
+    secrets: 
+      cargo-registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
