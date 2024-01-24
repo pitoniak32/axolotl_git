@@ -8,24 +8,24 @@ pub enum AxlColor {
 }
 
 impl From<AxlColor> for CustomColor {
-    fn from(axl_color: AxlColor) -> CustomColor {
+    fn from(axl_color: AxlColor) -> Self {
         match axl_color {
-            AxlColor::HotPink => CustomColor {
+            AxlColor::HotPink => Self {
                 r: 255,
                 g: 174,
                 b: 188,
             },
-            AxlColor::TiffanyBlue => CustomColor {
+            AxlColor::TiffanyBlue => Self {
                 r: 160,
                 g: 231,
                 b: 229,
             },
-            AxlColor::Mint => CustomColor {
+            AxlColor::Mint => Self {
                 r: 180,
                 g: 248,
                 b: 200,
             },
-            AxlColor::Yellow => CustomColor {
+            AxlColor::Yellow => Self {
                 r: 251,
                 g: 231,
                 b: 198,

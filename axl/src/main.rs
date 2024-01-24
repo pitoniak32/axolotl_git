@@ -47,22 +47,22 @@ struct AxlContext {
 
 impl Cli {
     fn init() -> Result<Self> {
-        let mut cli = Cli::parse();
+        let mut cli = Self::parse();
         env_logger::builder()
             .filter_level(cli.args.verbosity.log_level_filter())
             .parse_default_env()
             .init();
         log::debug!("cli_before_config_init: {cli:#?}");
         let axl_config: AxlConfig = AxlConfig::new(&cli.args.config_path)?;
-        Cli::print_version_string(axl_config.show_art);
-        Cli::print_yaml_string(
+        Self::print_version_string(axl_config.show_art);
+        Self::print_yaml_string(
             serde_yaml::to_string(&axl_config)
                 .expect("Should be able to convert struct to yaml string"),
         );
 
         let context = AxlContext {
             config_path: cli.args.config_path.clone(),
-            config: axl_config.clone(),
+            config: axl_config,
         };
         cli.context = context;
         log::debug!("cli_after_config_init: {cli:#?}");
@@ -99,7 +99,7 @@ impl Cli {
             .theme("Nord")
             .input_from_bytes(bytes)
             .print()
-            .unwrap();
+            .expect("yaml pretty printer should not fail");
         println!();
     }
 
@@ -125,9 +125,9 @@ enum Commands {
 }
 
 impl Commands {
-    fn handle(command: Commands, _context: AxlContext) -> Result<()> {
+    fn handle(command: Self, _context: AxlContext) -> Result<()> {
         match command {
-            Commands::Build => {
+            Self::Build => {
                 log::trace!("building...");
             }
         }
