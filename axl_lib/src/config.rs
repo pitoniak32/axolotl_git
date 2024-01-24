@@ -3,7 +3,9 @@ use std::fs;
 
 use serde::{Deserialize, Serialize};
 
-fn art_default() -> bool {true}
+fn art_default() -> bool {
+    true
+}
 /// Command Line Flags Should Overtake File Values.
 /// How can I show that a config option is available
 /// in the config file and in the cli flags?
@@ -19,7 +21,8 @@ impl AxlConfig {
         let mut axl_config: AxlConfig = serde_yaml::from_str(&fs::read_to_string(path)?)?;
         log::debug!("axl_config_before: {:#?}", &axl_config);
         let axl_inline = AxlConfig {
-            show_art: std::env::var("AXL_SHOW_ART").map_or(axl_config.show_art, |val| val == "true"),
+            show_art: std::env::var("AXL_SHOW_ART")
+                .map_or(axl_config.show_art, |val| val == "true"),
         };
         axl_config = AxlConfig::merge(Some(axl_inline), Some(axl_config)).unwrap();
         log::debug!("axl_config_after: {:#?}", &axl_config);
@@ -48,7 +51,7 @@ impl AxlConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
     use pretty_assertions::assert_eq;
 
     #[test]

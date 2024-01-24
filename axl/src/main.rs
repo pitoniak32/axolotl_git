@@ -1,6 +1,5 @@
 use anyhow::Result;
 use bat::PrettyPrinter;
-use git_client::{Git, PrintStdout};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +8,7 @@ use axl_lib::{
     constants::{AxlColor, ASCII_ART},
 };
 use clap::{Args, Parser, Subcommand};
-use colored::{Color, Colorize, CustomColor};
+use colored::Colorize;
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
