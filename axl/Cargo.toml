@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 axl_lib = { path = "../axl_lib" }
-git_lib = { path = "../../git_repo/git_lib" }
+git_lib = { workspace = true }
 clap = { version = "4.3.10", features = ["derive", "env", "color"] }
 clap-verbosity-flag = "2.0.1"
 anyhow = "1.0.71"
