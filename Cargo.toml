@@ -45,10 +45,3 @@ unsafe_code = "forbid"
 enum_glob_use = "deny"
 nursery = "deny"
 unwrap_used = "deny"
-
-[profile.release]
-opt-level = "z"
-lto = true
-codegen-units = 1
-panic = "abort"
-strip = "symbols"

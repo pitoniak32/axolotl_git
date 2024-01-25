@@ -1,7 +1,15 @@
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+    process,
+};
+
 use anyhow::Result;
 use axl_lib::{
     config::AxlConfig,
+    config_env::ConfigEnvKey,
     constants::{AxlColor, ASCII_ART},
+    fzf::FzfCmd,
     project::ProjectSubcommand,
 };
 use bat::PrettyPrinter;
@@ -31,7 +39,7 @@ pub struct Cli {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 struct AxlContext {
-    config_path: String,
+    config_path: PathBuf,
     config: AxlConfig,
 }
 
@@ -43,18 +51,17 @@ impl Cli {
             .parse_default_env()
             .init();
         log::debug!("cli_before_config_init: {cli:#?}");
-        let axl_config: AxlConfig = AxlConfig::new(&cli.args.config_path)?;
-        Self::print_version_string(axl_config.show_art);
-        Self::print_yaml_string(
-            serde_yaml::to_string(&axl_config)
-                .expect("Should be able to convert struct to yaml string"),
-        );
+        cli.set_config_path()?;
+        let axl_config: AxlConfig = AxlConfig::from_file(&cli.context.config_path)?;
+        if axl_config.show_art {
+            Self::print_version_string(axl_config.show_art);
+            Self::print_yaml_string(
+                serde_yaml::to_string(&axl_config)
+                    .expect("Should be able to convert struct to yaml string"),
+            );
+        }
 
-        let context = AxlContext {
-            config_path: cli.args.config_path.clone(),
-            config: axl_config,
-        };
-        cli.context = context;
+        cli.context.config = axl_config;
         log::debug!("cli_after_config_init: {cli:#?}");
 
         Ok(cli)
@@ -93,9 +100,49 @@ impl Cli {
         println!();
     }
 
+    pub fn set_config_path(&mut self) -> Result<()> {
+        if let Some(config_path) = &self.args.config_path {
+            if let Ok(curr) = std::fs::canonicalize(config_path) {
+                log::debug!("checking {}", curr.to_string_lossy());
+                if !curr.exists() {
+                    eprintln!(
+                        "\n{}\n",
+                        "Provided config path does not exist.".red().bold()
+                    );
+                    process::exit(1);
+                }
+                self.args.config_path = Some(curr.clone());
+                self.context.config_path = curr;
+            }
+        } else {
+            let mut path = PathBuf::try_from(ConfigEnvKey::XDGConfig)?;
+            if path.exists() {
+                path.push("axl");
+                if !path.exists() {
+                    fs::create_dir(&path)?;
+                }
+                path.push("config.toml");
+                if !path.exists() {
+                    File::create(&path)?;
+                }
+            } else {
+                let mut path = PathBuf::try_from(ConfigEnvKey::Home)?;
+                if path.exists() {
+                    path.push(".axlrc.toml");
+                    if !path.exists() {
+                        File::create(&path)?;
+                    }
+                }
+            }
+            self.args.config_path = Some(path.clone());
+            self.context.config_path = path.clone();
+        }
+        Ok(())
+    }
+
     pub fn handle_command(self) -> Result<()> {
         if let Some(cmd) = self.command {
-            Commands::handle(cmd, self.context)?;
+            Commands::handle(cmd, self.context, self.args)?;
         } else {
             println!(
                 "{}",
@@ -104,28 +151,53 @@ impl Cli {
                     .bold()
             );
         }
+
         Ok(())
     }
 }
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Commands related to building projects
-    Build,
-
     #[clap(subcommand)]
     /// Commands for managing projects.
     Project(ProjectSubcommand),
 }
 
 impl Commands {
-    fn handle(command: Self, _context: AxlContext) -> Result<()> {
+    fn handle(command: Self, context: AxlContext, args: SharedArgs) -> Result<()> {
         match command {
-            Self::Build => {
-                log::trace!("building...");
-            }
-            Self::Project(_subcommand) => {
-                // ProjectSubcommand::handle_cmd(_subcommand, )?;
+            Self::Project(subcommand) => {
+                let mut projects_dir = args
+                    .projects_dir
+                    .or(context.config.projects_dir.default)
+                    .expect("should be set");
+                if args.pick_projects_dir {
+                    log::trace!("user picking project dir...");
+                    if let Some(dirs) = context.config.projects_dir.options {
+                        let string_dir_names: Vec<String> = dirs
+                            .iter()
+                            .map(|d| d.to_string_lossy().to_string())
+                            .collect();
+                        let selected = PathBuf::from(FzfCmd::new().find_vec(string_dir_names)?);
+                        log::trace!(
+                            "expanding project dir selection: [{}]",
+                            selected.to_string_lossy()
+                        );
+                        match std::fs::canonicalize(selected) {
+                            Ok(curr) => {
+                                log::trace!(
+                                    "user picked [{}] as project dir.",
+                                    projects_dir.to_string_lossy()
+                                );
+                                projects_dir = curr
+                            }
+                            Err(err) => {
+                                log::trace!("failed expanding project dir selection. using default of [{}]: {err}", projects_dir.to_string_lossy());
+                            }
+                        }
+                    }
+                }
+                ProjectSubcommand::handle_cmd(subcommand, projects_dir)?;
                 log::trace!("project...");
             }
         }
@@ -138,9 +210,17 @@ struct SharedArgs {
     #[clap(flatten)]
     verbosity: clap_verbosity_flag::Verbosity,
 
-    #[arg(short, long, default_value = "./cfg_example.yml")]
-    config_path: String,
-
-    #[arg(short, long, default_value = ".")]
+    #[arg(long, default_value = ".")]
     project_root: String,
+
+    /// Allow interactive choice of project dirs listed in config file.
+    #[arg(short, long)]
+    pick_projects_dir: bool,
+
+    #[arg(long, env)]
+    projects_dir: Option<PathBuf>,
+
+    /// Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.mukdukrc.yml' defaults.
+    #[arg(short, long)]
+    config_path: Option<PathBuf>,
 }

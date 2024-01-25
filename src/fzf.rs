@@ -59,14 +59,17 @@ impl FzfCmd {
             .expect("fzf command should spawn");
 
         // Get the stdin handle of the child process
-        if let Some(stdin) = &mut fzf_child.stdin {
-            // Write your input string to the command's stdin
-            stdin
-                .write_all(input.as_bytes())
-                .expect("should be able to pass project names to fzf stdin");
-        } else {
-            eprintln!("Failed to get stdin handle for the child process");
-        }
+        fzf_child.stdin.as_mut().map_or_else(
+            || {
+                eprintln!("Failed to get stdin handle for the child process");
+            },
+            |stdin| {
+                // Write your input string to the command's stdin
+                stdin
+                    .write_all(input.as_bytes())
+                    .expect("should be able to pass project names to fzf stdin");
+            },
+        );
 
         // Ensure the child process has finished
         let output = fzf_child.wait_with_output()?;
