@@ -12,13 +12,15 @@ use serde::Serialize;
 pub struct Project {
     pub path: PathBuf,
     pub name: String,
+    pub remote: Option<String>,
 }
 
 impl Project {
-    pub fn new(path: &Path, name: String) -> Self {
+    pub fn new(path: &Path, name: String, remote: Option<String>) -> Self {
         Self {
             path: path.to_path_buf(),
             name: name.replace('.', "_"),
+            remote,
         }
     }
 
@@ -38,9 +40,11 @@ impl Display for Project {
 }
 
 use crate::{
+    config::AxlContext,
     config_env::ConfigEnvKey,
-    helper::{fzf_get_sessions, get_project, get_projects},
+    helper::fzf_get_sessions,
     multiplexer::{Multiplexer, Multiplexers},
+    project_manager::ProjectManager,
 };
 
 #[derive(Args, Debug)]
@@ -80,29 +84,35 @@ pub enum ProjectSubcommand {
     /// Kill sessions.
     Kill {
         #[clap(flatten)]
-        proj_args: ProjectArgs,
-        #[clap(flatten)]
         sess_args: SessionArgs,
     },
     /// Open new unique session in $HOME and increment prefix (available: 0-9).
     Home {
         #[clap(flatten)]
-        proj_args: ProjectArgs,
-        #[clap(flatten)]
         sess_args: SessionArgs,
     },
-    /// List all projects in your projects dir.
+    /// List all projects tracked in your config list.
     List {
         #[arg(short, long, value_enum, default_value_t=OutputFormat::Debug)]
         output: OutputFormat,
     },
+    /// Show a report of projects
+    ///
+    /// This will show you projects tracked in your config file, and the projects in your project
+    /// directory that are not tracked.
+    Report,
     /// Clone a new repo into your projects dir.
     New {
-        #[clap(flatten)]
-        proj_args: ProjectArgs,
         ssh_uri: String,
     }, // Like ThePrimagen Harpoon in nvim but for multiplexer sessions
-       // Harpoon(ProjectArgs),
+    // Harpoon(ProjectArgs),
+    Test,
+    /// Reconsile projects defined in config with projects in the directory.
+    ///
+    /// This will not be descructive. It will only add projects from config that are not already in project folder.
+    /// if you want to remove a project you should remove it from your config, and then manually
+    /// remove it from the file
+    Sync,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -118,14 +128,19 @@ pub enum OutputFormat {
 }
 
 impl ProjectSubcommand {
-    pub fn handle_cmd(project_sub_cmd: Self, projects_dir: PathBuf) -> anyhow::Result<()> {
+    pub fn handle_cmd(
+        project_sub_cmd: Self,
+        projects_dir: PathBuf,
+        context: AxlContext,
+    ) -> anyhow::Result<()> {
+        let project_manager = ProjectManager::new(&projects_dir, context.config.project);
         match project_sub_cmd {
             Self::Open {
                 proj_args,
                 sess_args,
             } => {
                 let project =
-                    get_project(projects_dir, &proj_args.project_dir, proj_args.name.clone())?;
+                    project_manager.get_project(&proj_args.project_dir, proj_args.name.clone())?;
                 sess_args.multiplexer.open(&proj_args, project)?;
                 Ok(())
             }
@@ -144,28 +159,20 @@ impl ProjectSubcommand {
                             .name
                             .clone()
                             .unwrap_or_else(|| "scratch".to_string()),
+                        None,
                     ),
                 )?;
                 Ok(())
             }
-            Self::Kill {
-                proj_args: _,
-                sess_args,
-            } => {
+            Self::Kill { sess_args } => {
                 let sessions = sess_args.multiplexer.get_sessions();
                 log::debug!("sessions: {sessions:?}");
                 let picked_sessions = fzf_get_sessions(sessions)?;
                 sess_args.multiplexer.kill_sessions(picked_sessions)?;
                 Ok(())
             }
-            Self::Home {
-                proj_args: _,
-                sess_args,
-            } => sess_args.multiplexer.unique_session(),
-            Self::New {
-                proj_args: _,
-                ssh_uri,
-            } => {
+            Self::Home { sess_args } => sess_args.multiplexer.unique_session(),
+            Self::New { ssh_uri } => {
                 log::debug!("Attempting to clone {ssh_uri}...");
                 let results = GitRepo::from_ssh_uri_multi(&[&ssh_uri], &projects_dir);
                 for result in results {
@@ -175,8 +182,35 @@ impl ProjectSubcommand {
                 }
                 Ok(())
             }
+            Self::Report => {
+                let projects_fs = project_manager.get_projects_from_fs()?;
+                let projects_config = project_manager.get_projects_from_config()?;
+                let filtered = projects_fs
+                    .iter()
+                    .filter(|p| {
+                        !projects_config
+                            .iter()
+                            .map(|p_c| p_c.name.clone())
+                            .any(|x| x == p.name)
+                    })
+                    .collect::<Vec<_>>();
+                println!(
+                    "PROJECTS REPORT ({})",
+                    project_manager.root_dir.to_string_lossy()
+                );
+                println!("===============");
+                println!(
+                    "file system: {}\nconfig list: {}\nnot tracked: {}",
+                    projects_fs.len(),
+                    projects_config.len(),
+                    filtered.len(),
+                );
+                println!("projects in file system not tracked in config list: ");
+                println!("{:#?}", filtered.iter().collect::<Vec<_>>());
+                Ok(())
+            }
             Self::List { output } => {
-                let projects = get_projects(&projects_dir)?;
+                let projects = project_manager.get_projects_from_config()?;
                 match output {
                     OutputFormat::Debug => {
                         println!("{:#?}", projects);
@@ -191,6 +225,8 @@ impl ProjectSubcommand {
                 }
                 Ok(())
             }
+            Self::Sync => Ok(()),
+            Self::Test => Ok(()),
         }
     }
 }

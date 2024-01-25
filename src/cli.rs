@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Result;
 use axl_lib::{
-    config::AxlConfig,
+    config::{AxlConfig, AxlContext},
     config_env::ConfigEnvKey,
     constants::{AxlColor, ASCII_ART},
     fzf::FzfCmd,
@@ -16,7 +16,6 @@ use bat::PrettyPrinter;
 use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 use rand::Rng;
-use serde::{Deserialize, Serialize};
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -37,12 +36,6 @@ pub struct Cli {
     context: AxlContext,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-struct AxlContext {
-    config_path: PathBuf,
-    config: AxlConfig,
-}
-
 impl Cli {
     pub fn init() -> Result<Self> {
         let mut cli = Self::parse();
@@ -53,8 +46,8 @@ impl Cli {
         log::debug!("cli_before_config_init: {cli:#?}");
         cli.set_config_path()?;
         let axl_config: AxlConfig = AxlConfig::from_file(&cli.context.config_path)?;
-        if axl_config.show_art {
-            Self::print_version_string(axl_config.show_art);
+        if axl_config.general.show_art {
+            Self::print_version_string(axl_config.general.show_art);
             Self::print_yaml_string(
                 serde_yaml::to_string(&axl_config)
                     .expect("Should be able to convert struct to yaml string"),
@@ -121,14 +114,14 @@ impl Cli {
                 if !path.exists() {
                     fs::create_dir(&path)?;
                 }
-                path.push("config.toml");
+                path.push("config.yml");
                 if !path.exists() {
                     File::create(&path)?;
                 }
             } else {
                 let mut path = PathBuf::try_from(ConfigEnvKey::Home)?;
                 if path.exists() {
-                    path.push(".axlrc.toml");
+                    path.push(".axlrc.yml");
                     if !path.exists() {
                         File::create(&path)?;
                     }
@@ -160,6 +153,8 @@ impl Cli {
 enum Commands {
     #[clap(subcommand)]
     /// Commands for managing projects.
+    ///
+    /// All commands are using the selected project directory.
     Project(ProjectSubcommand),
 }
 
@@ -169,14 +164,14 @@ impl Commands {
             Self::Project(subcommand) => {
                 let mut projects_dir = args
                     .projects_dir
-                    .or(context.config.projects_dir.default)
+                    .or_else(|| context.config.project.default_project_folder.clone())
                     .expect("should be set");
                 if args.pick_projects_dir {
                     log::trace!("user picking project dir...");
-                    if let Some(dirs) = context.config.projects_dir.options {
+                    if let Some(dirs) = context.config.project.project_folders.clone() {
                         let string_dir_names: Vec<String> = dirs
                             .iter()
-                            .map(|d| d.to_string_lossy().to_string())
+                            .map(|d| d.path.to_string_lossy().to_string())
                             .collect();
                         let selected = PathBuf::from(FzfCmd::new().find_vec(string_dir_names)?);
                         log::trace!(
@@ -197,7 +192,7 @@ impl Commands {
                         }
                     }
                 }
-                ProjectSubcommand::handle_cmd(subcommand, projects_dir)?;
+                ProjectSubcommand::handle_cmd(subcommand, projects_dir, context)?;
                 log::trace!("project...");
             }
         }
@@ -210,17 +205,15 @@ struct SharedArgs {
     #[clap(flatten)]
     verbosity: clap_verbosity_flag::Verbosity,
 
-    #[arg(long, default_value = ".")]
-    project_root: String,
-
-    /// Allow interactive choice of project dirs listed in config file.
-    #[arg(short, long)]
+    /// Allow interactive choice of project root dir, from dirs listed in config file.
+    #[arg(short, long, group = "project")]
     pick_projects_dir: bool,
 
-    #[arg(long, env)]
+    /// Manually set the project root dir.
+    #[arg(long, env, group = "project")]
     projects_dir: Option<PathBuf>,
 
-    /// Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.mukdukrc.yml' defaults.
+    /// Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.axlrc.yml' defaults.
     #[arg(short, long)]
     config_path: Option<PathBuf>,
 }
