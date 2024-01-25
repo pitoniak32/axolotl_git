@@ -2,6 +2,11 @@
 name = "axolotl_git"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["David Pitoniak"]
+repository = "https://github.com/pitoniak32/axolotl_git"
+description = "project management cli"
+keywords = ["project", "cli", "git", "repository"]
 
 [lib]
 name = "axl_lib"
