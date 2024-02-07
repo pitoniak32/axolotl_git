@@ -11,7 +11,8 @@ pub mod zellij;
 pub trait Multiplexer {
     fn open(self, proj_args: &ProjectArgs, project: Project) -> Result<()>;
     fn get_sessions(self) -> Vec<String>;
-    fn kill_sessions(self, sessions: Vec<String>) -> Result<()>;
+    fn get_current_session(self) -> String;
+    fn kill_sessions(self, sessions: Vec<String>, current_session: &str) -> Result<()>;
     fn unique_session(self) -> Result<()>;
 }
 
@@ -41,9 +42,16 @@ impl Multiplexer for Multiplexers {
         }
     }
 
-    fn kill_sessions(self, sessions: Vec<String>) -> Result<()> {
+    fn get_current_session(self) -> String {
         match self {
-            Self::Tmux => Tmux::kill_sessions(&sessions),
+            Self::Tmux => Tmux::get_current_session(),
+            Self::Zellij => todo!(),
+        }
+    }
+
+    fn kill_sessions(self, sessions: Vec<String>, current_session: &str) -> Result<()> {
+        match self {
+            Self::Tmux => Tmux::kill_sessions(&sessions, current_session),
             Self::Zellij => Zellij::kill_sessions(&sessions),
         }
     }

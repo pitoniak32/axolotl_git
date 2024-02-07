@@ -1,0 +1,11 @@
+general:
+  show_art: true
+project:
+  default_project_folder: "/home/davidpi/Projects"
+  project_folders:
+  - path: "/home/davidpi/Projects"
+    projects: 
+    - remote: "git@github.com:pitoniak32/axolotl_git.git"
+    - remote: "git@github.com:pitoniak32/.ansible.git"
+  - path: "/home/davidpi/Documents"
+    projects: []

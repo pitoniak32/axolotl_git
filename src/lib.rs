@@ -6,3 +6,4 @@ pub mod fzf;
 pub mod helper;
 pub mod multiplexer;
 pub mod project;
+pub mod project_manager;

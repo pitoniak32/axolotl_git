@@ -22,20 +22,26 @@ impl Tmux {
         );
 
         if !Self::in_session() {
-            Self::create_new_attached_attach_if_exists(&project.get_name(), &project.get_path())?;
-        } else if Self::has_session(&project.get_name()) {
-            log::info!("Session '{}' already exists, opening.", project.get_name());
-            Self::switch(&project.get_name())?;
+            Self::create_new_attached_attach_if_exists(
+                &project.get_safe_name(),
+                &project.get_path(),
+            )?;
+        } else if Self::has_session(&project.get_safe_name()) {
+            log::info!(
+                "Session '{}' already exists, opening.",
+                project.get_safe_name()
+            );
+            Self::switch(&project.get_safe_name())?;
         } else {
             log::info!(
                 "Session '{}' does not already exist, creating and opening.",
-                project.get_name(),
+                project.get_safe_name(),
             );
 
-            if Self::create_new_detached(&project.get_name(), &project.get_path())
+            if Self::create_new_detached(&project.get_safe_name(), &project.get_path())
                 .is_ok_and(|o| o.status.success())
             {
-                Self::switch(&project.get_name())?;
+                Self::switch(&project.get_safe_name())?;
             } else {
                 eprintln!("{}", "Session failed to open.".red().bold());
             }
@@ -57,18 +63,51 @@ impl Tmux {
         .collect()
     }
 
-    pub fn kill_sessions(sessions: &[String]) -> Result<()> {
-        sessions.iter().for_each(|s| {
-            if Self::kill_session(s).is_ok() {
-                if s.is_empty() {
+    pub fn get_current_session() -> String {
+        String::from_utf8_lossy(
+            &wrap_command(
+                Command::new("tmux")
+                    .arg("display-message")
+                    .arg("-p")
+                    .arg("#S"),
+            )
+            .expect("tmux should be able to show current session")
+            .stdout,
+        )
+        .trim_end()
+        .to_string()
+    }
+
+    pub fn kill_sessions(sessions: &[String], current_session: &str) -> Result<()> {
+        sessions
+            .iter()
+            .filter(|s| *s != current_session)
+            .for_each(|s| {
+                if Self::kill_session(s).is_ok() {
+                    if s.is_empty() {
+                        log::warn!("No session picked");
+                    } else {
+                        log::info!("Killed {}.", s);
+                    }
+                } else {
+                    log::error!("Error while killing {}.", s)
+                }
+            });
+
+        if sessions.contains(&current_session.to_string()) {
+            log::debug!("current session [{current_session}] was included to be killed.");
+
+            if Self::kill_session(current_session).is_ok() {
+                if current_session.is_empty() {
                     log::warn!("No session picked");
                 } else {
-                    log::info!("Killed {}.", s);
+                    log::info!("Killed {}.", current_session);
                 }
             } else {
-                log::error!("Error while killing {}.", s)
+                log::error!("Error while killing {}.", current_session)
             }
-        });
+        }
+
         Ok(())
     }
 
