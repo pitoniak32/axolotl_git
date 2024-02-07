@@ -5,6 +5,6 @@ jobs:
   publish-crate:
     uses: pitoniak32/actions/.github/workflows/rust-publish-crate.yml@main
     with:
-      package-name: axl
+      package-name: axolotl_git
     secrets: inherit
 
