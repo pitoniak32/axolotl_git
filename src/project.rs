@@ -10,18 +10,26 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Project {
+    pub project_folder_path: PathBuf,
     pub path: PathBuf,
     pub name: String,
+    pub safe_name: String,
     pub remote: Option<String>,
 }
 
 impl Project {
     pub fn new(path: &Path, name: String, remote: Option<String>) -> Self {
         Self {
-            path: path.to_path_buf(),
-            name: name.replace('.', "_"),
+            project_folder_path: path.to_path_buf(),
+            path: path.join(name.clone()),
+            name: name.clone(),
+            safe_name: name.replace('.', "_"),
             remote,
         }
+    }
+
+    pub fn get_safe_name(&self) -> String {
+        self.safe_name.clone()
     }
 
     pub fn get_name(&self) -> String {
@@ -168,7 +176,11 @@ impl ProjectSubcommand {
                 let sessions = sess_args.multiplexer.get_sessions();
                 log::debug!("sessions: {sessions:?}");
                 let picked_sessions = fzf_get_sessions(sessions)?;
-                sess_args.multiplexer.kill_sessions(picked_sessions)?;
+                let current_session = sess_args.multiplexer.get_current_session();
+                log::debug!("current session: {current_session}");
+                sess_args
+                    .multiplexer
+                    .kill_sessions(picked_sessions, &current_session)?;
                 Ok(())
             }
             Self::Home { sess_args } => sess_args.multiplexer.unique_session(),
