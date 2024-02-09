@@ -42,7 +42,7 @@ impl FzfCmd {
 
     pub fn find_vec<T>(&mut self, input: Vec<T>) -> Result<String>
     where
-        T: AsRef<OsStr> + Display,
+        T: Display,
     {
         let projects_string: String = input.iter().fold(String::new(), |acc, project_name| {
             format!("{acc}\n{project_name}")

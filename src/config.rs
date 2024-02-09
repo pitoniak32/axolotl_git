@@ -1,6 +1,7 @@
 use anyhow::Result;
+use git_lib::git::Git;
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf};
+use std::{fmt::Display, fs, path::PathBuf};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct AxlContext {
@@ -31,7 +32,7 @@ pub struct GeneralConfig {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ProjectConfig {
     pub default_project_folder: Option<PathBuf>,
-    pub project_folders: Option<Vec<ProjectFolder>>,
+    pub project_folders: Vec<ProjectFolder>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -40,10 +41,34 @@ pub struct ProjectFolder {
     pub projects: Vec<ConfigProject>,
 }
 
+impl Display for ProjectFolder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.path.to_string_lossy())
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ConfigProject {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub remote: String,
+}
+
+impl ConfigProject {
+    pub fn get_name(&self) -> Result<String> {
+        self.name.as_ref().map_or_else(
+            || {
+                Ok(Git::parse_url(&self.remote)
+                    .expect("provided urls should be parsable")
+                    .name)
+            },
+            |n| Ok(n.clone()),
+        )
+    }
+
+    pub fn get_remote(&self) -> String {
+        self.remote.clone()
+    }
 }
 
 impl AxlConfig {
@@ -55,6 +80,12 @@ impl AxlConfig {
         log::trace!("config: {:#?}", loaded_config);
         log::trace!("config loaded!");
         Ok(loaded_config)
+    }
+}
+
+impl ProjectConfig {
+    pub fn get_project_folders(&self) -> Vec<ProjectFolder> {
+        self.project_folders.clone()
     }
 }
 

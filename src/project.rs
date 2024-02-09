@@ -14,11 +14,11 @@ pub struct Project {
     pub path: PathBuf,
     pub name: String,
     pub safe_name: String,
-    pub remote: Option<String>,
+    pub remote: String,
 }
 
 impl Project {
-    pub fn new(path: &Path, name: String, remote: Option<String>) -> Self {
+    pub fn new(path: &Path, name: String, remote: String) -> Self {
         Self {
             project_folder_path: path.to_path_buf(),
             path: path.join(name.clone()),
@@ -48,7 +48,7 @@ impl Display for Project {
 }
 
 use crate::{
-    config::AxlContext,
+    config::{AxlContext, ConfigProject},
     config_env::ConfigEnvKey,
     helper::fzf_get_sessions,
     multiplexer::{Multiplexer, Multiplexers},
@@ -104,6 +104,14 @@ pub enum ProjectSubcommand {
         #[arg(short, long, value_enum, default_value_t=OutputFormat::Debug)]
         output: OutputFormat,
     },
+    /// Select projects to bring into axl tracking
+    ///
+    /// This will pick projects, from a specified directory, and give a yaml string to add into your config file.
+    Import {
+        /// The projects directory to pick from
+        #[arg(short, long)]
+        directory: PathBuf,
+    },
     /// Show a report of projects
     ///
     /// This will show you projects tracked in your config file, and the projects in your project
@@ -141,7 +149,8 @@ impl ProjectSubcommand {
         projects_dir: PathBuf,
         context: AxlContext,
     ) -> anyhow::Result<()> {
-        let project_manager = ProjectManager::new(&projects_dir, context.config.project);
+        log::debug!("using [{projects_dir:?}] as projects folder.");
+        let project_manager = ProjectManager::new(&projects_dir, context.config.project.clone());
         match project_sub_cmd {
             Self::Open {
                 proj_args,
@@ -167,7 +176,7 @@ impl ProjectSubcommand {
                             .name
                             .clone()
                             .unwrap_or_else(|| "scratch".to_string()),
-                        None,
+                        "".to_owned(),
                     ),
                 )?;
                 Ok(())
@@ -219,6 +228,24 @@ impl ProjectSubcommand {
                 );
                 println!("projects in file system not tracked in config list: ");
                 println!("{:#?}", filtered.iter().collect::<Vec<_>>());
+                Ok(())
+            }
+            Self::Import { directory } => {
+                let temp_manager = ProjectManager::new(&directory, context.config.project);
+                let projects = ProjectManager::pick_projects(temp_manager.get_projects_from_fs()?)?;
+
+                let projects = projects
+                    .into_iter()
+                    .map(|p| ConfigProject {
+                        name: None,
+                        remote: p.remote,
+                    })
+                    .collect::<Vec<_>>();
+                println!(
+                    "Copy into your config file:\n---\n{}",
+                    serde_yaml::to_string(&projects)?
+                );
+
                 Ok(())
             }
             Self::List { output } => {

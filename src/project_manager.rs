@@ -24,7 +24,7 @@ impl ProjectManager {
         name: Option<String>,
     ) -> Result<Project> {
         project_dir.as_ref().map_or_else(
-            || self.pick_project(),
+            || Self::pick_project(self.get_projects_from_config()?),
             |selected_project| {
                 Ok(Project::new(
                     selected_project,
@@ -35,62 +35,67 @@ impl ProjectManager {
                             .to_string_lossy()
                             .to_string()
                     }),
-                    None,
+                    Git::get_remote_url(&selected_project)
+                        .expect("git command to get remote should not fail")
+                        .expect("project needs to have a remote."),
                 ))
             },
         )
     }
 
     pub fn get_projects_from_config(&self) -> Result<Vec<Project>> {
-        self.config.project_folders.clone().map_or_else(
-            || {
-                panic!();
-            },
-            |projects| {
-                let p: Vec<_> = projects
+        let p: Vec<_> = self
+            .config
+            .project_folders
+            .clone()
+            .into_iter()
+            .filter(|proj_folder| proj_folder.path == self.root_dir)
+            .flat_map(|d| {
+                d.projects
                     .into_iter()
-                    .filter(|proj_folder| proj_folder.path == self.root_dir)
-                    .flat_map(|d| {
-                        d.projects
-                            .into_iter()
-                            .map(|config_project| {
-                                Project::new(
-                                    &d.path,
-                                    Git::parse_url(&config_project.remote)
-                                        .expect("provided git urls should be parsable")
-                                        .name,
-                                    Some(config_project.remote),
-                                )
-                            })
-                            .collect::<Vec<Project>>()
+                    .map(|config_project| {
+                        Project::new(
+                            &d.path,
+                            Git::parse_url(&config_project.remote)
+                                .expect("provided git urls should be parsable")
+                                .name,
+                            config_project.remote,
+                        )
                     })
-                    .collect();
-                Ok(p)
-            },
-        )
+                    .collect::<Vec<Project>>()
+            })
+            .collect();
+        Ok(p)
     }
 
     pub fn get_projects_from_fs(&self) -> Result<Vec<Project>> {
         let projects: Vec<_> = get_directories(&self.root_dir)?
             .into_iter()
-            .map(|d| {
-                Project::new(
-                    &d,
-                    d.file_name()
-                        .expect("file_name should be representable as a String")
-                        .to_string_lossy()
-                        .to_string(),
-                    Git::get_remote_url(&d).expect("git command to get remote should not fail"),
-                )
+            .filter_map(|d| {
+                Git::get_remote_url(&d)
+                    .expect("git command to get remote should not fail")
+                    .map_or_else(
+                        || {
+                            log::warn!("skipping [{d:?}]. Remote was not found.");
+                            None
+                        },
+                        |remote| {
+                            Some(Project::new(
+                                &d,
+                                d.file_name()
+                                    .expect("file_name should be representable as a String")
+                                    .to_string_lossy()
+                                    .to_string(),
+                                remote,
+                            ))
+                        },
+                    )
             })
             .collect();
         Ok(projects)
     }
 
-    pub fn pick_project(&self) -> Result<Project> {
-        log::debug!("Using project_dir: {:?}", self.root_dir);
-
-        let projects: Vec<_> = self.get_projects_from_config()?;
+    pub fn pick_project(projects: Vec<Project>) -> Result<Project> {
         let project_names = projects.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
 
         log::debug!("projects: {projects:#?}");
@@ -107,5 +112,35 @@ impl ProjectManager {
                 },
                 |project| Ok(project.clone()),
             )
+    }
+
+    pub fn pick_projects(pickable_projects: Vec<Project>) -> Result<Vec<Project>> {
+        let project_names = pickable_projects
+            .iter()
+            .map(|p| p.name.clone())
+            .collect::<Vec<_>>();
+
+        log::debug!("pickable_projects: {pickable_projects:#?}");
+        let project_names_picked = FzfCmd::new()
+            .args(vec!["--phony", "--multi"])
+            .find_vec(project_names)?
+            .trim_end()
+            .split('\n')
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
+
+        log::debug!("picked_project_names: {project_names_picked:?}");
+
+        let projects = pickable_projects
+            .into_iter()
+            .filter(|p| project_names_picked.contains(&p.name))
+            .collect::<Vec<_>>();
+
+        if projects.is_empty() {
+            eprintln!("{}", "No projects were selected.".red().bold());
+            std::process::exit(1);
+        }
+
+        Ok(projects)
     }
 }

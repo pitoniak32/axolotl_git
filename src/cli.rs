@@ -168,27 +168,28 @@ impl Commands {
                     .expect("should be set");
                 if args.pick_projects_dir {
                     log::trace!("user picking project dir...");
-                    if let Some(dirs) = context.config.project.project_folders.clone() {
-                        let string_dir_names: Vec<String> = dirs
-                            .iter()
-                            .map(|d| d.path.to_string_lossy().to_string())
-                            .collect();
-                        let selected = PathBuf::from(FzfCmd::new().find_vec(string_dir_names)?);
-                        log::trace!(
-                            "expanding project dir selection: [{}]",
-                            selected.to_string_lossy()
-                        );
-                        match std::fs::canonicalize(selected) {
-                            Ok(curr) => {
-                                log::trace!(
-                                    "user picked [{}] as project dir.",
-                                    projects_dir.to_string_lossy()
-                                );
-                                projects_dir = curr
-                            }
-                            Err(err) => {
-                                log::trace!("failed expanding project dir selection. using default of [{}]: {err}", projects_dir.to_string_lossy());
-                            }
+                    let string_dir_names: Vec<String> = context
+                        .config
+                        .project
+                        .project_folders
+                        .iter()
+                        .map(|d| d.path.to_string_lossy().to_string())
+                        .collect();
+                    let selected = PathBuf::from(FzfCmd::new().find_vec(string_dir_names)?);
+                    log::trace!(
+                        "expanding project dir selection: [{}]",
+                        selected.to_string_lossy()
+                    );
+                    match std::fs::canonicalize(selected) {
+                        Ok(curr) => {
+                            log::trace!(
+                                "user picked [{}] as project dir.",
+                                projects_dir.to_string_lossy()
+                            );
+                            projects_dir = curr
+                        }
+                        Err(err) => {
+                            log::trace!("failed expanding project dir selection. using default of [{}]: {err}", projects_dir.to_string_lossy());
                         }
                     }
                 }
