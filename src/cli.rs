@@ -10,7 +10,7 @@ use axl_lib::{
     config_env::ConfigEnvKey,
     constants::{AxlColor, ASCII_ART},
     fzf::FzfCmd,
-    project::ProjectSubcommand,
+    subcommand_project::ProjectSubcommand,
 };
 use bat::PrettyPrinter;
 use clap::{Args, Parser, Subcommand};

@@ -52,7 +52,7 @@ use crate::{
     config_env::ConfigEnvKey,
     helper::fzf_get_sessions,
     multiplexer::{Multiplexer, Multiplexers},
-    project_manager::ProjectManager,
+    project::project_manager::ProjectManager,
 };
 
 #[derive(Args, Debug)]

@@ -9,7 +9,7 @@ use std::{
 use crate::{
     config_env::ConfigEnvKey,
     helper::wrap_command,
-    project::{Project, ProjectArgs},
+    subcommand_project::{Project, ProjectArgs},
 };
 
 pub struct Tmux;

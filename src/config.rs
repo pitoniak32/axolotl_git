@@ -92,7 +92,7 @@ impl ProjectConfig {
 #[cfg(test)]
 mod tests {
 
-    use pretty_assertions::assert_eq;
+    use similar_asserts::assert_eq;
 
     #[test]
     fn should_merge_when_inline_none_and_file_none() {

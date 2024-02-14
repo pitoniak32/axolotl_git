@@ -3,7 +3,9 @@ use colored::Colorize;
 use git_lib::git::Git;
 use std::path::{Path, PathBuf};
 
-use crate::{config::ProjectConfig, fzf::FzfCmd, helper::get_directories, project::Project};
+use crate::{
+    config::ProjectConfig, fzf::FzfCmd, helper::get_directories, subcommand_project::Project,
+};
 
 pub struct ProjectManager {
     pub root_dir: PathBuf,
