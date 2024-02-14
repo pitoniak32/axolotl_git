@@ -4,4 +4,4 @@
 
 # Axolotl Git
 
-A repo management cli that will allow your git repos to grow and regenerate like an axolotl!
+A repo management cli that will allow your projects to grow, and regenerate like an axolotl!
