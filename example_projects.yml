@@ -1,4 +1,4 @@
-path: "/home/davidpi/Projects"
+path: "/home/davidpi/Projects/"
 projects: 
   - git@github.com:pitoniak32/jobsys.git
   - git@github.com:pitoniak32/.ansible.git

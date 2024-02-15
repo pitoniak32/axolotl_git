@@ -220,13 +220,26 @@ impl ProjectSubcommand {
                 Ok(())
             }
             Self::Report { proj_args } => {
-                let projects_fs = ProjectsDirectoryFile::get_projects_from_fs(
-                    &proj_args.projects_directory_file,
-                )?;
                 let projects_directory_file =
                     ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                log::trace!(
+                    "getting projects from fs [{}]",
+                    &projects_directory_file.path.to_string_lossy()
+                );
+                let projects_fs =
+                    ProjectsDirectoryFile::get_projects_from_fs(&projects_directory_file.path)?;
+                log::trace!("got projects from fs [{:#?}]", &projects_fs);
+                log::trace!(
+                    "getting projects from project_directory_file [{}] remotes",
+                    &proj_args.projects_directory_file.to_string_lossy()
+                );
                 let projects_remotes = projects_directory_file.get_projects_from_remotes()?;
+                log::trace!(
+                    "got projects from project_directory_file remotes [{:#?}]",
+                    &projects_fs
+                );
                 let filtered = projects_fs
+                    .0
                     .iter()
                     .filter(|p| {
                         !projects_remotes
@@ -241,18 +254,33 @@ impl ProjectSubcommand {
                 );
                 println!("===============");
                 println!(
-                    "file system: {}\nconfig list: {}\nnot tracked: {}",
-                    projects_fs.len(),
+                    "file system: {}\nconfig list: {}\nnot tracked: {}\nignored: {}\n",
+                    projects_fs.0.len(),
                     projects_remotes.len(),
                     filtered.len(),
+                    projects_fs.1.len(),
                 );
-                println!("projects in file system not tracked in config list: ");
-                println!("{:#?}", filtered.iter().collect::<Vec<_>>());
+
+                if !filtered.is_empty() {
+                    println!(
+                        "items in [{}] not tracked in config list: ",
+                        projects_directory_file.path.to_string_lossy()
+                    );
+                    println!("{:#?}", filtered.iter().collect::<Vec<_>>());
+                }
+
+                if !projects_fs.1.is_empty() {
+                    println!(
+                        "ignored items in [{}]: ",
+                        projects_directory_file.path.to_string_lossy()
+                    );
+                    println!("{:#?}", projects_fs.1.iter().collect::<Vec<_>>());
+                }
                 Ok(())
             }
             Self::Import { directory } => {
                 let projects = ProjectsDirectoryFile::pick_projects(
-                    ProjectsDirectoryFile::get_projects_from_fs(&directory)?,
+                    ProjectsDirectoryFile::get_projects_from_fs(&directory)?.0,
                 )?;
 
                 let projects = projects.into_iter().map(|p| p.remote).collect::<Vec<_>>();
