@@ -17,8 +17,8 @@ name = "axl"
 path = "src/main.rs"
 
 [dependencies.git_lib]
-version = "0.1.0"
-#path = "../git_repo/git_lib"
+# version = "0.1.0"
+path = "../git_repo/git_lib"
 
 [dependencies]
 anyhow = "1.0.71"

@@ -55,7 +55,7 @@ impl ProjectsDirectoryFile {
                         },
                         |remote| {
                             Some(Project::new(
-                                &d,
+                                path,
                                 d.file_name()
                                     .expect("file_name should be representable as a String")
                                     .to_string_lossy()
@@ -125,9 +125,12 @@ pub struct ProjectDirectoryManager {
 
 #[cfg(test)]
 mod tests {
+
     use anyhow::Result;
 
-    use assert_fs::{prelude::FileWriteStr, NamedTempFile};
+    use assert_fs::prelude::*;
+    use assert_fs::*;
+    use git_lib::git::Git;
     use rstest::{fixture, rstest};
     use similar_asserts::assert_eq;
 
@@ -162,6 +165,46 @@ mod tests {
                 remote: "git@github.com:user/test2.git".to_string(),
             },
         ]
+    }
+
+    #[fixture]
+    fn projects_directory_fs() -> TempDir {
+        // Arrange
+        let projects = TempDir::new().expect("should be able to make temp dir");
+
+        let child_config = projects.child("project_config.yml");
+        child_config
+            .touch()
+            .expect("child_config should get created");
+        child_config
+            .write_str(&format!(
+                "path: \"{}\"\nprojects:\n- git@github.com:test_user/test_repo1.git\n- git@github.com:test_user/test_repo2.git",
+                &projects.path().join("projects").to_string_lossy()
+            ))
+            .expect("should be able to write to file");
+
+        make_test_repo(&projects, "test_repo1");
+        make_test_repo(&projects, "test_repo2");
+        let child_repo3 = projects.child("projects/test_repo3_not_tracked/file");
+        child_repo3
+            .touch()
+            .expect("should be able to create a file");
+
+        projects
+    }
+
+    // make into partial fixture when not drunk
+    fn make_test_repo(dir: &TempDir, name: &str) {
+        let child_repo = dir.child(format!("projects/{name}/file"));
+        let repo_dir = child_repo.parent().expect("should have parent");
+        child_repo.touch().expect("child_repo should get created");
+        Git::init(repo_dir).expect("child_repo can be initilized");
+        Git::add_remote(
+            "origin",
+            &format!("git@github.com:test_user/{name}.git"),
+            repo_dir,
+        )
+        .expect("child_repo can have remote added");
     }
 
     #[rstest]
@@ -216,6 +259,40 @@ mod tests {
                 },
             ]
         );
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn should_read_projects_from_fs(
+        #[from(projects_directory_fs)] test_dir: TempDir,
+    ) -> Result<()> {
+        // Act
+        let projects_dir_path = test_dir.path().join("projects");
+        dbg!(&projects_dir_path);
+        let projects = ProjectsDirectoryFile::get_projects_from_fs(&projects_dir_path)?;
+
+        assert_eq!(projects.0.len(), 2);
+        assert!(projects.0.contains(&Project {
+            name: "test_repo1".to_string(),
+            safe_name: "test_repo1".to_string(),
+            project_folder_path: projects_dir_path.clone(),
+            path: projects_dir_path.join("test_repo1"),
+            remote: "git@github.com:test_user/test_repo1.git".to_string(),
+        },),);
+        assert!(projects.0.contains(&Project {
+            name: "test_repo2".to_string(),
+            safe_name: "test_repo2".to_string(),
+            project_folder_path: projects_dir_path.clone(),
+            path: projects_dir_path.join("test_repo2"),
+            remote: "git@github.com:test_user/test_repo2.git".to_string(),
+        }));
+        assert_eq!(
+            projects.1,
+            vec![projects_dir_path.join("test_repo3_not_tracked"),]
+        );
+
+        test_dir.close().expect("temp dir can be closed");
 
         Ok(())
     }
