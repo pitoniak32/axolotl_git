@@ -4,27 +4,27 @@ use thiserror::Error;
 
 pub enum ConfigEnvKey {
     Home,
-    XDGConfig,
-    XDGData,
-    XDGState,
+    XDGConfigHome,
+    XDGDataHome,
+    XDGStateHome,
 }
 
 impl ConfigEnvKey {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::Home => "HOME",
-            Self::XDGConfig => "XDG_CONFIG_HOME",
-            Self::XDGData => "XDG_DATA_HOME",
-            Self::XDGState => "XDG_STATE_HOME",
+            Self::XDGConfigHome => "XDG_CONFIG_HOME",
+            Self::XDGDataHome => "XDG_DATA_HOME",
+            Self::XDGStateHome => "XDG_STATE_HOME",
         }
     }
 
     pub const fn default_value(&self) -> &'static str {
         match self {
             Self::Home => "",
-            Self::XDGConfig => "",
-            Self::XDGData => "",
-            Self::XDGState => "",
+            Self::XDGConfigHome => "",
+            Self::XDGDataHome => "",
+            Self::XDGStateHome => "",
         }
     }
 }
@@ -39,25 +39,25 @@ impl TryFrom<ConfigEnvKey> for PathBuf {
             ConfigEnvKey::Home => Ok(Self::from(
                 env::var(ConfigEnvKey::Home.as_str()).expect("HOME env var should be set"),
             )),
-            ConfigEnvKey::XDGConfig => match env::var(ConfigEnvKey::XDGConfig.as_str()) {
+            ConfigEnvKey::XDGConfigHome => match env::var(ConfigEnvKey::XDGConfigHome.as_str()) {
                 Ok(config_dir) => Ok(Self::from(config_dir)),
                 Err(_err) => {
                     let mut home = Self::try_from(ConfigEnvKey::Home)?;
                     home.push(".config");
                     log::trace!(
                         "Error: error reading ${}. Using [{}]",
-                        ConfigEnvKey::XDGConfig.as_str(),
+                        ConfigEnvKey::XDGConfigHome.as_str(),
                         home.as_os_str().to_string_lossy()
                     );
                     Ok(home)
                 }
             },
-            ConfigEnvKey::XDGData => Ok(Self::from(
-                env::var(ConfigEnvKey::XDGData.as_str())
+            ConfigEnvKey::XDGDataHome => Ok(Self::from(
+                env::var(ConfigEnvKey::XDGDataHome.as_str())
                     .expect("XDG_DATA_HOME env var should be set"),
             )),
-            ConfigEnvKey::XDGState => Ok(Self::from(
-                env::var(ConfigEnvKey::XDGState.as_str())
+            ConfigEnvKey::XDGStateHome => Ok(Self::from(
+                env::var(ConfigEnvKey::XDGStateHome.as_str())
                     .expect("XDG_STATE_HOME env var should be set"),
             )),
             #[allow(unreachable_patterns)]

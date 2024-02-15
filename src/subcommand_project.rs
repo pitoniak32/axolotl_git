@@ -48,8 +48,7 @@ impl Display for Project {
 }
 
 use crate::{
-    config::AxlContext,
-    config_env::ConfigEnvKey,
+    config::{config_env::ConfigEnvKey, config_file::AxlContext},
     helper::fzf_get_sessions,
     multiplexer::{Multiplexer, Multiplexers},
     project::project_directory_manager::ProjectsDirectoryFile,
@@ -161,7 +160,10 @@ impl ProjectSubcommand {
                 proj_args,
                 sess_args,
             } => {
-                log::debug!("using [{:?}] projects file.", proj_args.projects_directory_file);
+                log::debug!(
+                    "using [{:?}] projects file.",
+                    proj_args.projects_directory_file
+                );
                 let projects_directory_file =
                     ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
                 let project = projects_directory_file.get_project()?;
@@ -201,7 +203,10 @@ impl ProjectSubcommand {
             }
             Self::Home { sess_args } => sess_args.multiplexer.unique_session(),
             Self::New { proj_args, ssh_uri } => {
-                log::debug!("using [{:?}] projects file.", proj_args.projects_directory_file);
+                log::debug!(
+                    "using [{:?}] projects file.",
+                    proj_args.projects_directory_file
+                );
                 let projects_directory_file =
                     ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
                 log::debug!("Attempting to clone {ssh_uri}...");
@@ -214,10 +219,12 @@ impl ProjectSubcommand {
                 }
                 Ok(())
             }
-            Self::Report { proj_args }=> {
-                let projects_fs =
-                    ProjectsDirectoryFile::get_projects_from_fs(&proj_args.projects_directory_file)?;
-                let projects_directory_file = ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+            Self::Report { proj_args } => {
+                let projects_fs = ProjectsDirectoryFile::get_projects_from_fs(
+                    &proj_args.projects_directory_file,
+                )?;
+                let projects_directory_file =
+                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
                 let projects_remotes = projects_directory_file.get_projects_from_remotes()?;
                 let filtered = projects_fs
                     .iter()
@@ -257,7 +264,8 @@ impl ProjectSubcommand {
                 Ok(())
             }
             Self::List { proj_args, output } => {
-                let projects_directory_file = ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                let projects_directory_file =
+                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
                 let projects = projects_directory_file.get_projects_from_remotes()?;
                 match output {
                     OutputFormat::Debug => {
@@ -297,7 +305,7 @@ mod tests {
             "test2".to_string(),
             "git@github.com:user/test2.git".to_string(),
         );
-        
+
         // Assert
         assert_eq!(
             project,

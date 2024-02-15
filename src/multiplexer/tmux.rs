@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    config_env::ConfigEnvKey,
+    config::config_env::ConfigEnvKey,
     helper::wrap_command,
     subcommand_project::{Project, ProjectArgs},
 };

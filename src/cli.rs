@@ -6,8 +6,10 @@ use std::{
 
 use anyhow::Result;
 use axl_lib::{
-    config::{AxlConfig, AxlContext},
-    config_env::ConfigEnvKey,
+    config::{
+        config_env::ConfigEnvKey,
+        config_file::{AxlConfig, AxlContext},
+    },
     constants::{AxlColor, ASCII_ART},
     subcommand_project::ProjectSubcommand,
 };
@@ -107,7 +109,7 @@ impl Cli {
                 self.context.config_path = curr;
             }
         } else {
-            let mut path = PathBuf::try_from(ConfigEnvKey::XDGConfig)?;
+            let mut path = PathBuf::try_from(ConfigEnvKey::XDGConfigHome)?;
             if path.exists() {
                 path.push("axl");
                 if !path.exists() {
@@ -150,7 +152,7 @@ impl Cli {
 }
 
 #[derive(Subcommand, Debug)]
-enum Commands {
+pub enum Commands {
     #[clap(subcommand)]
     /// Commands for managing projects.
     ///
@@ -159,7 +161,7 @@ enum Commands {
 }
 
 impl Commands {
-    fn handle(command: Self, context: AxlContext, args: SharedArgs) -> Result<()> {
+    fn handle(command: Self, context: AxlContext, _args: SharedArgs) -> Result<()> {
         match command {
             Self::Project(subcommand) => {
                 log::trace!("project...");

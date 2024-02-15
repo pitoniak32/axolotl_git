@@ -124,6 +124,7 @@ pub struct ProjectDirectoryManager {
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
+
     use assert_fs::{prelude::FileWriteStr, NamedTempFile};
     use rstest::{fixture, rstest};
     use similar_asserts::assert_eq;
@@ -133,7 +134,7 @@ mod tests {
     use super::ProjectsDirectoryFile;
 
     #[fixture]
-    fn projects_test_1_file() -> NamedTempFile {
+    fn projects_directory_file_1() -> NamedTempFile {
         // Arrange
         let file = NamedTempFile::new("projects_test_1.txt")
             .expect("test fixture tmp file can be created");
@@ -141,10 +142,32 @@ mod tests {
         file
     }
 
+    #[fixture]
+    fn projects_vec_len_2() -> Vec<Project> {
+        vec![
+            Project {
+                name: "test1".to_string(),
+                safe_name: "test1".to_string(),
+                project_folder_path: "/test/projects/dir/".into(),
+                path: "/test/projects/dir/test1".into(),
+                remote: "git@github.com:user/test1.git".to_string(),
+            },
+            Project {
+                name: "test2".to_string(),
+                safe_name: "test2".to_string(),
+                project_folder_path: "/test/projects/dir/".into(),
+                path: "/test/projects/dir/test2".into(),
+                remote: "git@github.com:user/test2.git".to_string(),
+            },
+        ]
+    }
+
     #[rstest]
-    fn should_read_projects_file_into_struct(projects_test_1_file: NamedTempFile) -> Result<()> {
+    fn should_read_projects_file_into_struct(
+        #[from(projects_directory_file_1)] test_file: NamedTempFile,
+    ) -> Result<()> {
         // Act
-        let projects_directory_file = ProjectsDirectoryFile::new(projects_test_1_file.path())?;
+        let projects_directory_file = ProjectsDirectoryFile::new(test_file.path())?;
 
         // Assert
         assert_eq!(
@@ -162,9 +185,11 @@ mod tests {
     }
 
     #[rstest]
-    fn should_turn_remotes_into_project_structs(projects_test_1_file: NamedTempFile) -> Result<()> {
+    fn should_turn_remotes_into_project_structs(
+        #[from(projects_directory_file_1)] test_file: NamedTempFile,
+    ) -> Result<()> {
         // Arrange
-        let projects_directory_file = ProjectsDirectoryFile::new(projects_test_1_file.path())?;
+        let projects_directory_file = ProjectsDirectoryFile::new(test_file.path())?;
 
         // Act
         let projects = projects_directory_file.get_projects_from_remotes()?;
