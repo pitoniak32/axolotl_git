@@ -6,11 +6,12 @@ use std::{
 
 use anyhow::Result;
 use axl_lib::{
-    config::{AxlConfig, AxlContext},
-    config_env::ConfigEnvKey,
+    config::{
+        config_env::ConfigEnvKey,
+        config_file::{AxlConfig, AxlContext},
+    },
     constants::{AxlColor, ASCII_ART},
-    fzf::FzfCmd,
-    project::ProjectSubcommand,
+    subcommand_project::ProjectSubcommand,
 };
 use bat::PrettyPrinter;
 use clap::{Args, Parser, Subcommand};
@@ -108,7 +109,7 @@ impl Cli {
                 self.context.config_path = curr;
             }
         } else {
-            let mut path = PathBuf::try_from(ConfigEnvKey::XDGConfig)?;
+            let mut path = PathBuf::try_from(ConfigEnvKey::XDGConfigHome)?;
             if path.exists() {
                 path.push("axl");
                 if !path.exists() {
@@ -137,12 +138,13 @@ impl Cli {
         if let Some(cmd) = self.command {
             Commands::handle(cmd, self.context, self.args)?;
         } else {
-            println!(
+            eprintln!(
                 "{}",
                 "No command was provided! To see commands use `--help`."
                     .yellow()
                     .bold()
             );
+            std::process::exit(1);
         }
 
         Ok(())
@@ -150,7 +152,7 @@ impl Cli {
 }
 
 #[derive(Subcommand, Debug)]
-enum Commands {
+pub enum Commands {
     #[clap(subcommand)]
     /// Commands for managing projects.
     ///
@@ -159,41 +161,11 @@ enum Commands {
 }
 
 impl Commands {
-    fn handle(command: Self, context: AxlContext, args: SharedArgs) -> Result<()> {
+    fn handle(command: Self, context: AxlContext, _args: SharedArgs) -> Result<()> {
         match command {
             Self::Project(subcommand) => {
-                let mut projects_dir = args
-                    .projects_dir
-                    .or_else(|| context.config.project.default_project_folder.clone())
-                    .expect("should be set");
-                if args.pick_projects_dir {
-                    log::trace!("user picking project dir...");
-                    if let Some(dirs) = context.config.project.project_folders.clone() {
-                        let string_dir_names: Vec<String> = dirs
-                            .iter()
-                            .map(|d| d.path.to_string_lossy().to_string())
-                            .collect();
-                        let selected = PathBuf::from(FzfCmd::new().find_vec(string_dir_names)?);
-                        log::trace!(
-                            "expanding project dir selection: [{}]",
-                            selected.to_string_lossy()
-                        );
-                        match std::fs::canonicalize(selected) {
-                            Ok(curr) => {
-                                log::trace!(
-                                    "user picked [{}] as project dir.",
-                                    projects_dir.to_string_lossy()
-                                );
-                                projects_dir = curr
-                            }
-                            Err(err) => {
-                                log::trace!("failed expanding project dir selection. using default of [{}]: {err}", projects_dir.to_string_lossy());
-                            }
-                        }
-                    }
-                }
-                ProjectSubcommand::handle_cmd(subcommand, projects_dir, context)?;
                 log::trace!("project...");
+                ProjectSubcommand::handle_cmd(subcommand, context)?;
             }
         }
         Ok(())
@@ -204,14 +176,6 @@ impl Commands {
 struct SharedArgs {
     #[clap(flatten)]
     verbosity: clap_verbosity_flag::Verbosity,
-
-    /// Allow interactive choice of project root dir, from dirs listed in config file.
-    #[arg(short, long, group = "project")]
-    pick_projects_dir: bool,
-
-    /// Manually set the project root dir.
-    #[arg(long, env, group = "project")]
-    projects_dir: Option<PathBuf>,
 
     /// Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.axlrc.yml' defaults.
     #[arg(short, long)]

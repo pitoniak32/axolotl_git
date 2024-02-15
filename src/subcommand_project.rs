@@ -8,17 +8,17 @@ use std::{
 
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct Project {
     pub project_folder_path: PathBuf,
     pub path: PathBuf,
     pub name: String,
     pub safe_name: String,
-    pub remote: Option<String>,
+    pub remote: String,
 }
 
 impl Project {
-    pub fn new(path: &Path, name: String, remote: Option<String>) -> Self {
+    pub fn new(path: &Path, name: String, remote: String) -> Self {
         Self {
             project_folder_path: path.to_path_buf(),
             path: path.join(name.clone()),
@@ -48,11 +48,10 @@ impl Display for Project {
 }
 
 use crate::{
-    config::AxlContext,
-    config_env::ConfigEnvKey,
+    config::{config_env::ConfigEnvKey, config_file::AxlContext},
     helper::fzf_get_sessions,
     multiplexer::{Multiplexer, Multiplexers},
-    project_manager::ProjectManager,
+    project::project_directory_manager::ProjectsDirectoryFile,
 };
 
 #[derive(Args, Debug)]
@@ -67,6 +66,10 @@ pub struct ProjectArgs {
     #[arg(short, long)]
     /// Name of session, defaults to project_dir name
     pub name: Option<String>,
+
+    /// Manually set the project root dir.
+    #[arg(long, env)]
+    projects_directory_file: PathBuf,
 
     #[arg(short, long)]
     /// Name of session, defaults to project_dir name
@@ -101,16 +104,31 @@ pub enum ProjectSubcommand {
     },
     /// List all projects tracked in your config list.
     List {
+        #[clap(flatten)]
+        proj_args: ProjectArgs,
         #[arg(short, long, value_enum, default_value_t=OutputFormat::Debug)]
         output: OutputFormat,
+    },
+    /// Select projects to bring into axl tracking
+    ///
+    /// This will pick projects, from a specified directory, and give a yaml string to add into your config file.
+    Import {
+        /// The projects directory to pick from
+        #[arg(short, long)]
+        directory: PathBuf,
     },
     /// Show a report of projects
     ///
     /// This will show you projects tracked in your config file, and the projects in your project
     /// directory that are not tracked.
-    Report,
+    Report {
+        #[clap(flatten)]
+        proj_args: ProjectArgs,
+    },
     /// Clone a new repo into your projects dir.
     New {
+        #[clap(flatten)]
+        proj_args: ProjectArgs,
         ssh_uri: String,
     }, // Like ThePrimagen Harpoon in nvim but for multiplexer sessions
     // Harpoon(ProjectArgs),
@@ -136,19 +154,19 @@ pub enum OutputFormat {
 }
 
 impl ProjectSubcommand {
-    pub fn handle_cmd(
-        project_sub_cmd: Self,
-        projects_dir: PathBuf,
-        context: AxlContext,
-    ) -> anyhow::Result<()> {
-        let project_manager = ProjectManager::new(&projects_dir, context.config.project);
+    pub fn handle_cmd(project_sub_cmd: Self, _context: AxlContext) -> anyhow::Result<()> {
         match project_sub_cmd {
             Self::Open {
                 proj_args,
                 sess_args,
             } => {
-                let project =
-                    project_manager.get_project(&proj_args.project_dir, proj_args.name.clone())?;
+                log::debug!(
+                    "using [{:?}] projects file.",
+                    proj_args.projects_directory_file
+                );
+                let projects_directory_file =
+                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                let project = projects_directory_file.get_project()?;
                 sess_args.multiplexer.open(&proj_args, project)?;
                 Ok(())
             }
@@ -167,7 +185,7 @@ impl ProjectSubcommand {
                             .name
                             .clone()
                             .unwrap_or_else(|| "scratch".to_string()),
-                        None,
+                        "".to_owned(),
                     ),
                 )?;
                 Ok(())
@@ -184,9 +202,16 @@ impl ProjectSubcommand {
                 Ok(())
             }
             Self::Home { sess_args } => sess_args.multiplexer.unique_session(),
-            Self::New { ssh_uri } => {
+            Self::New { proj_args, ssh_uri } => {
+                log::debug!(
+                    "using [{:?}] projects file.",
+                    proj_args.projects_directory_file
+                );
+                let projects_directory_file =
+                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
                 log::debug!("Attempting to clone {ssh_uri}...");
-                let results = GitRepo::from_ssh_uri_multi(&[&ssh_uri], &projects_dir);
+                let results =
+                    GitRepo::from_ssh_uri_multi(&[&ssh_uri], &projects_directory_file.path);
                 for result in results {
                     if let Err(err) = result {
                         log::error!("Failed cloning with: {err:?}");
@@ -194,13 +219,17 @@ impl ProjectSubcommand {
                 }
                 Ok(())
             }
-            Self::Report => {
-                let projects_fs = project_manager.get_projects_from_fs()?;
-                let projects_config = project_manager.get_projects_from_config()?;
+            Self::Report { proj_args } => {
+                let projects_fs = ProjectsDirectoryFile::get_projects_from_fs(
+                    &proj_args.projects_directory_file,
+                )?;
+                let projects_directory_file =
+                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                let projects_remotes = projects_directory_file.get_projects_from_remotes()?;
                 let filtered = projects_fs
                     .iter()
                     .filter(|p| {
-                        !projects_config
+                        !projects_remotes
                             .iter()
                             .map(|p_c| p_c.name.clone())
                             .any(|x| x == p.name)
@@ -208,21 +237,36 @@ impl ProjectSubcommand {
                     .collect::<Vec<_>>();
                 println!(
                     "PROJECTS REPORT ({})",
-                    project_manager.root_dir.to_string_lossy()
+                    projects_directory_file.path.to_string_lossy()
                 );
                 println!("===============");
                 println!(
                     "file system: {}\nconfig list: {}\nnot tracked: {}",
                     projects_fs.len(),
-                    projects_config.len(),
+                    projects_remotes.len(),
                     filtered.len(),
                 );
                 println!("projects in file system not tracked in config list: ");
                 println!("{:#?}", filtered.iter().collect::<Vec<_>>());
                 Ok(())
             }
-            Self::List { output } => {
-                let projects = project_manager.get_projects_from_config()?;
+            Self::Import { directory } => {
+                let projects = ProjectsDirectoryFile::pick_projects(
+                    ProjectsDirectoryFile::get_projects_from_fs(&directory)?,
+                )?;
+
+                let projects = projects.into_iter().map(|p| p.remote).collect::<Vec<_>>();
+                println!(
+                    "Copy into your project file list:\n---\n{}",
+                    serde_yaml::to_string(&projects)?
+                );
+
+                Ok(())
+            }
+            Self::List { proj_args, output } => {
+                let projects_directory_file =
+                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                let projects = projects_directory_file.get_projects_from_remotes()?;
                 match output {
                     OutputFormat::Debug => {
                         println!("{:#?}", projects);
@@ -240,5 +284,40 @@ impl ProjectSubcommand {
             Self::Sync => Ok(()),
             Self::Test => Ok(()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use anyhow::Result;
+    use rstest::rstest;
+    use similar_asserts::assert_eq;
+
+    use crate::subcommand_project::Project;
+
+    #[rstest]
+    fn should_create_new_project() -> Result<()> {
+        // Act
+        let project = Project::new(
+            &PathBuf::from("/test/projects/dir/"),
+            "test2".to_string(),
+            "git@github.com:user/test2.git".to_string(),
+        );
+
+        // Assert
+        assert_eq!(
+            project,
+            Project {
+                name: "test2".to_string(),
+                safe_name: "test2".to_string(),
+                project_folder_path: "/test/projects/dir/".into(),
+                path: "/test/projects/dir/test2".into(),
+                remote: "git@github.com:user/test2.git".to_string()
+            }
+        );
+
+        Ok(())
     }
 }

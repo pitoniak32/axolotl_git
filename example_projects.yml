@@ -1,0 +1,15 @@
+path: "/home/davidpi/Projects"
+projects: 
+  - git@github.com:pitoniak32/jobsys.git
+  - git@github.com:pitoniak32/.ansible.git
+  - git@github.com:pitoniak32/rust_sandbox.git
+  - git@github.com:pitoniak32/.ansible-vault-vars.git
+  - git@github.com:pitoniak32/advent_of_code.git
+  - git@github.com:pitoniak32/cfg-cli.git
+  - git@github.com:pitoniak32/cod_keeper.git
+  - https://github.com/rust-lang/rustlings
+  - git@github.com:pitoniak32/git_repo.git
+  - git@github.com:NFC-Inc/poc_rear.git
+  - git@github.com:pitoniak32/axolotl_git.git
+  - git@github.com:pitoniak32/mukduk.git
+
