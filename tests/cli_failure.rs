@@ -1,27 +1,15 @@
-use rstest::rstest;
 use assert_cmd::Command;
+use rstest::rstest;
 
 use predicates::prelude::predicate;
 
 // Make some snapshot assertions on command output
 
 #[rstest]
-#[case::no_args("No command was provided! To see commands use `--help`.")]
-fn axl_cmd_help_msgs_success(
-    #[case] expected_msg: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Arrange
-    let mut cmd = Command::cargo_bin("axl")?;
-
-    // Act / Assert
-    cmd.assert().success().stdout(predicate::str::contains(expected_msg));
-
-    Ok(())
-}
-
-#[rstest]
-#[case::project(vec!["project"], "Usage: axl project [OPTIONS] <COMMAND>")]
-#[case::project::open(vec!["project", "open"], "Usage: axl project open --multiplexer <MULTIPLEXER>")]
+#[case::no_cmd_no_flag(vec![], "Usage: axl [OPTIONS] [COMMAND]")]
+#[case::no_cmd_with_flag(vec!["-v"], "No command was provided! To see commands use `--help`.")]
+#[case::project_cmd_no_sub_cmd(vec!["project"], "Usage: axl project [OPTIONS] <COMMAND>")]
+#[case::project_cmd_open_sub_cmd(vec!["project", "open"], "Usage: axl project open --multiplexer <MULTIPLEXER>")]
 fn axl_project_no_args(
     #[case] args: Vec<&str>,
     #[case] expected_msg: &str,
@@ -34,7 +22,9 @@ fn axl_project_no_args(
     }
 
     // Act / Assert
-    cmd.assert().failure().stderr(predicate::str::contains(expected_msg));
+    cmd.assert()
+        .failure()
+        .stderr(predicate::str::contains(expected_msg));
 
     Ok(())
 }

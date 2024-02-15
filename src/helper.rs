@@ -1,6 +1,6 @@
 use std::{
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Output, Stdio},
 };
 
@@ -41,7 +41,7 @@ pub fn fzf_get_sessions(session_names: Vec<String>) -> Result<Vec<String>> {
         .collect())
 }
 
-pub fn get_directories(path: &PathBuf) -> Result<Vec<PathBuf>> {
+pub fn get_directories(path: &Path) -> Result<Vec<PathBuf>> {
     Ok(fs::read_dir(path)?
         .filter_map(|dir| match dir {
             Ok(dir) => match dir.file_type() {
