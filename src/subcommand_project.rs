@@ -132,25 +132,27 @@ pub enum ProjectSubcommand {
         ssh_uri: String,
     }, // Like ThePrimagen Harpoon in nvim but for multiplexer sessions
     // Harpoon(ProjectArgs),
-    Test,
-    /// Reconsile projects defined in config with projects in the directory.
-    ///
-    /// This will not be descructive. It will only add projects from config that are not already in project folder.
-    /// if you want to remove a project you should remove it from your config, and then manually
-    /// remove it from the file
-    Sync,
+    // Test,
+    // Reconsile projects defined in config with projects in the directory.
+    //
+    // This will not be descructive. It will only add projects from config that are not already in project folder.
+    // if you want to remove a project you should remove it from your config, and then manually
+    // /// remove it from the file
+    // Sync,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
 pub enum OutputFormat {
-    /// Rust Debug print.
+    /// rust debug print.
     Debug,
-    /// Pretty printed json.
+    /// pretty printed json.
     Json,
-    /// Raw printed json.
+    /// raw printed json.
     JsonR,
     /// yaml.
     Yaml,
+    /// csv for excel spreadsheets.
+    Csv,
 }
 
 impl ProjectSubcommand {
@@ -303,14 +305,13 @@ impl ProjectSubcommand {
                         println!("{}", serde_json::to_string_pretty(&projects)?)
                     }
                     OutputFormat::Yaml => println!("{}", serde_yaml::to_string(&projects)?),
+                    OutputFormat::Csv => println!("{},", projects.iter().map(|p| p.name.clone()).collect::<Vec<_>>().join(",\n")),
                     OutputFormat::JsonR => {
                         println!("{}", serde_json::to_string(&projects)?)
                     }
                 }
                 Ok(())
             }
-            Self::Sync => Ok(()),
-            Self::Test => Ok(()),
         }
     }
 }
