@@ -40,7 +40,8 @@ impl ProjectsDirectoryFile {
         Ok(p)
     }
 
-    pub fn get_projects_from_fs(path: &Path) -> Result<Vec<Project>> {
+    pub fn get_projects_from_fs(path: &Path) -> Result<(Vec<Project>, Vec<PathBuf>)> {
+        let mut ignored = vec![];
         let projects: Vec<_> = get_directories(path)?
             .into_iter()
             .filter_map(|d| {
@@ -49,6 +50,7 @@ impl ProjectsDirectoryFile {
                     .map_or_else(
                         || {
                             log::warn!("skipping [{d:?}]. Remote was not found.");
+                            ignored.push(d.clone());
                             None
                         },
                         |remote| {
@@ -64,7 +66,7 @@ impl ProjectsDirectoryFile {
                     )
             })
             .collect();
-        Ok(projects)
+        Ok((projects, ignored))
     }
 
     pub fn pick_project(projects: Vec<Project>) -> Result<Project> {
