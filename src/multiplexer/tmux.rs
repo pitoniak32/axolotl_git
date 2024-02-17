@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Output},
 };
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     config::config_env::ConfigEnvKey,
@@ -16,6 +16,7 @@ use crate::{
 pub struct Tmux;
 
 impl Tmux {
+    #[instrument(skip(_proj_args), err)]
     pub fn open(_proj_args: &ProjectArgs, project: Project) -> Result<()> {
         info!(
             "Attempting to open Tmux session with project: {:?}!",
@@ -51,6 +52,7 @@ impl Tmux {
         Ok(())
     }
 
+    #[instrument]
     pub fn list_sessions() -> Vec<String> {
         String::from_utf8_lossy(
             &wrap_command(Command::new("tmux").arg("ls"))
@@ -64,6 +66,7 @@ impl Tmux {
         .collect()
     }
 
+    #[instrument]
     pub fn get_current_session() -> String {
         String::from_utf8_lossy(
             &wrap_command(
@@ -79,6 +82,7 @@ impl Tmux {
         .to_string()
     }
 
+    #[instrument(err)]
     pub fn kill_sessions(sessions: &[String], current_session: &str) -> Result<()> {
         sessions
             .iter()
@@ -112,6 +116,7 @@ impl Tmux {
         Ok(())
     }
 
+    #[instrument(err)]
     pub fn unique_session() -> Result<()> {
         for i in 0..10 {
             let name = &i.to_string();
@@ -132,6 +137,7 @@ impl Tmux {
 
 impl Tmux {
     #[allow(dead_code)] // This will likely be needed eventually.
+    #[instrument(err)]
     fn create_new_detached_attach_if_exists(name: &str, path: &Path) -> Result<Output> {
         wrap_command(Command::new("tmux").args([
             "new-session",
@@ -143,6 +149,7 @@ impl Tmux {
         ]))
     }
 
+    #[instrument(err)]
     fn create_new_attached_attach_if_exists(name: &str, path: &Path) -> Result<Output> {
         wrap_command(Command::new("tmux").args([
             "new-session",
@@ -154,6 +161,7 @@ impl Tmux {
         ]))
     }
 
+    #[instrument(err)]
     fn create_new_detached(name: &str, path: &Path) -> Result<Output> {
         wrap_command(Command::new("tmux").args([
             "new-session",
@@ -165,10 +173,12 @@ impl Tmux {
         ]))
     }
 
+    #[instrument(err)]
     fn switch(to_name: &str) -> Result<Output> {
         wrap_command(Command::new("tmux").args(["switch-client", "-t", to_name]))
     }
 
+    #[instrument]
     fn has_session(project_name: &str) -> bool {
         let output = wrap_command(Command::new("tmux").args([
             "has-session",
@@ -179,6 +189,7 @@ impl Tmux {
         output.is_ok_and(|o| o.status.success())
     }
 
+    #[instrument(err)]
     fn kill_session(project_name: &str) -> Result<()> {
         wrap_command(Command::new("tmux").args([
             "kill-session",
@@ -188,6 +199,7 @@ impl Tmux {
         Ok(())
     }
 
+    #[instrument]
     fn in_session() -> bool {
         env::var("TMUX").is_ok()
     }

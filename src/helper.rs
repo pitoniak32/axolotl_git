@@ -6,10 +6,11 @@ use std::{
 
 use anyhow::Result;
 use colored::Colorize;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 
 use crate::{error::AxlError, fzf::FzfCmd};
 
+#[instrument(skip(command), err)]
 pub fn wrap_command(command: &mut Command) -> Result<Output> {
     let output = command
         .stdout(Stdio::piped())
@@ -27,6 +28,7 @@ pub fn wrap_command(command: &mut Command) -> Result<Output> {
     Ok(output)
 }
 
+#[instrument(err)]
 pub fn fzf_get_sessions(session_names: Vec<String>) -> Result<Vec<String>> {
     if session_names.is_empty() {
         eprintln!("\n{}\n", "No sessions found to choose from.".blue().bold());
@@ -42,6 +44,7 @@ pub fn fzf_get_sessions(session_names: Vec<String>) -> Result<Vec<String>> {
         .collect())
 }
 
+#[instrument(err)]
 pub fn get_directories(path: &Path) -> Result<Vec<PathBuf>> {
     Ok(fs::read_dir(path)?
         .filter_map(|dir| match dir {

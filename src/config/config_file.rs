@@ -4,7 +4,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use tracing::trace;
+use tracing::{info, instrument};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct AxlContext {
@@ -32,8 +32,8 @@ const fn art_default() -> bool {
 }
 
 impl AxlConfig {
+    #[instrument(err)]
     pub fn from_file(config_path: &Path) -> Result<Self> {
-        trace!("loading config from {}...", config_path.to_string_lossy());
         let config_string = &fs::read_to_string(config_path)?;
         let mut loaded_config = if !config_string.trim().is_empty() {
             serde_yaml::from_str(config_string)?
@@ -42,8 +42,7 @@ impl AxlConfig {
         };
         loaded_config.general.show_art = std::env::var("AXL_SHOW_ART")
             .map_or(loaded_config.general.show_art, |val| val == "true");
-        trace!("config: {:#?}", loaded_config);
-        trace!("config loaded!");
+        info!("config: {:#?}", loaded_config);
         Ok(loaded_config)
     }
 }

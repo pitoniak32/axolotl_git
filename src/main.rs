@@ -6,9 +6,8 @@ use cli::Cli;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
-use tracing::{error, info_span, metadata::LevelFilter};
-use tracing_log::AsTrace;
-use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, Layer, Registry};
+use tracing::{error, info_span};
+use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, EnvFilter, Layer, Registry};
 use uuid::Uuid;
 
 pub mod cli;
@@ -17,7 +16,7 @@ pub mod cli;
 async fn main() -> Result<()> {
     let cli: Cli = Cli::parse();
 
-    configure_tracing(cli.args.verbosity.log_level_filter().as_trace())?;
+    configure_tracing()?;
 
     // So the span and guard are dropped before shutting down tracer provider.
     {
@@ -56,7 +55,7 @@ async fn main() -> Result<()> {
 }
 
 /// Amazing video on how this works: https://youtu.be/21rtHinFA40?si=vgARg2zxZ0ixC-yu
-fn configure_tracing(filter: LevelFilter) -> Result<()> {
+fn configure_tracing() -> Result<()> {
     let subscriber = Registry::default()
         .with(
             // set the default filter for all subscriber layers
@@ -65,7 +64,8 @@ fn configure_tracing(filter: LevelFilter) -> Result<()> {
         )
         .with(
             // set layer for log subscriber
-            tracing_subscriber::fmt::layer().with_filter(filter),
+            tracing_subscriber::fmt::layer()
+                .with_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "off".into())),
         )
         .with(std::env::var("OTEL_COLLECTOR_URL").map_or_else(
             |_| None,

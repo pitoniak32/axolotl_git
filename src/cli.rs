@@ -18,7 +18,7 @@ use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 use rand::Rng;
 use strum_macros::Display;
-use tracing::{debug, instrument, trace};
+use tracing::{debug, instrument};
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -40,7 +40,7 @@ pub struct Cli {
 }
 
 impl Cli {
-    #[instrument(skip_all)]
+    #[instrument(skip_all, err)]
     pub fn init(mut self) -> Result<Self> {
         debug!("cli_before_config_init: {self:#?}");
         let _ = &self.set_config_path()?;
@@ -94,7 +94,7 @@ impl Cli {
         println!();
     }
 
-    #[instrument(skip_all)]
+    #[instrument(skip_all, err)]
     pub fn set_config_path(&mut self) -> Result<()> {
         if let Some(config_path) = &self.args.config_path {
             if let Ok(curr) = std::fs::canonicalize(config_path) {
@@ -157,7 +157,6 @@ impl Commands {
     fn handle(command: Self, context: AxlContext, _args: SharedArgs) -> Result<()> {
         match command {
             Self::Project(subcommand) => {
-                trace!("project...");
                 ProjectSubcommand::handle_cmd(subcommand, context)?;
             }
         }
@@ -167,9 +166,6 @@ impl Commands {
 
 #[derive(Args, Debug)]
 pub struct SharedArgs {
-    #[clap(flatten)]
-    pub verbosity: clap_verbosity_flag::Verbosity,
-
     /// Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.axlrc.yml' defaults.
     #[arg(short, long)]
     config_path: Option<PathBuf>,
