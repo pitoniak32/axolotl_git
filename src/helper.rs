@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::Result;
 use colored::Colorize;
+use tracing::{info, warn};
 
 use crate::fzf::FzfCmd;
 
@@ -18,9 +19,9 @@ pub fn wrap_command(command: &mut Command) -> Result<Output> {
 
     // Use log crate to allow verbosity flag to control wrapped command logs.
     if output.status.success() && !output.stdout.is_empty() {
-        log::info!("{}", String::from_utf8_lossy(&output.stdout).trim());
+        info!("{}", String::from_utf8_lossy(&output.stdout).trim());
     } else if !output.stderr.is_empty() {
-        log::warn!("{}", String::from_utf8_lossy(&output.stderr).trim());
+        warn!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
 
     Ok(output)

@@ -5,6 +5,10 @@ use clap::Args;
 use clap::Subcommand;
 use clap::ValueEnum;
 use git_lib::repo::GitRepo;
+use tracing::debug;
+use tracing::error;
+use tracing::instrument;
+use tracing::trace;
 
 use crate::config::config_env::ConfigEnvKey;
 use crate::config::config_file::AxlContext;
@@ -117,13 +121,14 @@ pub enum OutputFormat {
 }
 
 impl ProjectSubcommand {
+    #[instrument(skip(project_sub_cmd, _context))]
     pub fn handle_cmd(project_sub_cmd: Self, _context: AxlContext) -> anyhow::Result<()> {
         match project_sub_cmd {
             Self::Open {
                 proj_args,
                 sess_args,
             } => {
-                log::debug!(
+                debug!(
                     "using [{:?}] projects file.",
                     proj_args.projects_directory_file
                 );
@@ -155,10 +160,10 @@ impl ProjectSubcommand {
             }
             Self::Kill { sess_args } => {
                 let sessions = sess_args.multiplexer.get_sessions();
-                log::debug!("sessions: {sessions:?}");
+                debug!("sessions: {sessions:?}");
                 let picked_sessions = fzf_get_sessions(sessions)?;
                 let current_session = sess_args.multiplexer.get_current_session();
-                log::debug!("current session: {current_session}");
+                debug!("current session: {current_session}");
                 sess_args
                     .multiplexer
                     .kill_sessions(picked_sessions, &current_session)?;
@@ -166,17 +171,17 @@ impl ProjectSubcommand {
             }
             Self::Home { sess_args } => sess_args.multiplexer.unique_session(),
             Self::New { proj_args, ssh_uri } => {
-                log::debug!(
+                debug!(
                     "using [{:?}] projects file.",
                     proj_args.projects_directory_file
                 );
                 let projects_directory_file =
                     ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
-                log::debug!("Attempting to clone {ssh_uri}...");
+                debug!("Attempting to clone {ssh_uri}...");
                 let results = GitRepo::from_url_multi(&[&ssh_uri], &projects_directory_file.path);
                 for result in results {
                     if let Err(err) = result {
-                        log::error!("Failed cloning with: {err:?}");
+                        error!("Failed cloning with: {err:?}");
                     }
                 }
                 Ok(())
@@ -184,19 +189,19 @@ impl ProjectSubcommand {
             Self::Report { proj_args } => {
                 let projects_directory_file =
                     ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
-                log::trace!(
+                trace!(
                     "getting projects from fs [{}]",
                     &projects_directory_file.path.to_string_lossy()
                 );
                 let projects_fs =
                     ProjectsDirectoryFile::get_projects_from_fs(&projects_directory_file.path)?;
-                log::trace!("got projects from fs [{:#?}]", &projects_fs);
-                log::trace!(
+                trace!("got projects from fs [{:#?}]", &projects_fs);
+                trace!(
                     "getting projects from project_directory_file [{}] remotes",
                     &proj_args.projects_directory_file.to_string_lossy()
                 );
                 let projects_remotes = projects_directory_file.get_projects_from_remotes()?;
-                log::trace!(
+                trace!(
                     "got projects from project_directory_file remotes [{:#?}]",
                     &projects_fs
                 );

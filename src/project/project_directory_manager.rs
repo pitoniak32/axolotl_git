@@ -5,6 +5,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use tracing::{debug, warn};
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -51,7 +52,7 @@ impl ProjectsDirectoryFile {
                     .expect("git command to get remote should not fail")
                     .map_or_else(
                         || {
-                            log::warn!("skipping [{d:?}]. Remote was not found.");
+                            warn!("skipping [{d:?}]. Remote was not found.");
                             ignored.push(d.clone());
                             None
                         },
@@ -74,7 +75,7 @@ impl ProjectsDirectoryFile {
     pub fn pick_project(projects: Vec<Project>) -> Result<Project> {
         let project_names = projects.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
 
-        log::debug!("projects: {projects:#?}");
+        debug!("projects: {projects:#?}");
 
         let project_name = FzfCmd::new().find_vec(project_names)?;
 
@@ -96,7 +97,7 @@ impl ProjectsDirectoryFile {
             .map(|p| p.name.clone())
             .collect::<Vec<_>>();
 
-        log::debug!("pickable_projects: {pickable_projects:#?}");
+        debug!("pickable_projects: {pickable_projects:#?}");
         let project_names_picked = FzfCmd::new()
             .args(vec!["--phony", "--multi"])
             .find_vec(project_names)?
@@ -105,7 +106,7 @@ impl ProjectsDirectoryFile {
             .map(|s| s.to_string())
             .collect::<Vec<_>>();
 
-        log::debug!("picked_project_names: {project_names_picked:?}");
+        debug!("picked_project_names: {project_names_picked:?}");
 
         let projects = pickable_projects
             .into_iter()

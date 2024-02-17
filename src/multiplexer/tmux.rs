@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Output},
 };
+use tracing::{debug, error, info, warn};
 
 use crate::{
     config::config_env::ConfigEnvKey,
@@ -16,7 +17,7 @@ pub struct Tmux;
 
 impl Tmux {
     pub fn open(_proj_args: &ProjectArgs, project: Project) -> Result<()> {
-        log::info!(
+        info!(
             "Attempting to open Tmux session with project: {:?}!",
             project,
         );
@@ -27,13 +28,13 @@ impl Tmux {
                 &project.get_path(),
             )?;
         } else if Self::has_session(&project.get_safe_name()) {
-            log::info!(
+            info!(
                 "Session '{}' already exists, opening.",
                 project.get_safe_name()
             );
             Self::switch(&project.get_safe_name())?;
         } else {
-            log::info!(
+            info!(
                 "Session '{}' does not already exist, creating and opening.",
                 project.get_safe_name(),
             );
@@ -85,26 +86,26 @@ impl Tmux {
             .for_each(|s| {
                 if Self::kill_session(s).is_ok() {
                     if s.is_empty() {
-                        log::warn!("No session picked");
+                        warn!("No session picked");
                     } else {
-                        log::info!("Killed {}.", s);
+                        info!("Killed {}.", s);
                     }
                 } else {
-                    log::error!("Error while killing {}.", s)
+                    error!("Error while killing {}.", s)
                 }
             });
 
         if sessions.contains(&current_session.to_string()) {
-            log::debug!("current session [{current_session}] was included to be killed.");
+            debug!("current session [{current_session}] was included to be killed.");
 
             if Self::kill_session(current_session).is_ok() {
                 if current_session.is_empty() {
-                    log::warn!("No session picked");
+                    warn!("No session picked");
                 } else {
-                    log::info!("Killed {}.", current_session);
+                    info!("Killed {}.", current_session);
                 }
             } else {
-                log::error!("Error while killing {}.", current_session)
+                error!("Error while killing {}.", current_session)
             }
         }
 

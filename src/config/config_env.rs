@@ -1,6 +1,7 @@
 use std::{env, path::PathBuf};
 
 use thiserror::Error;
+use tracing::trace;
 
 pub enum ConfigEnvKey {
     Home,
@@ -44,7 +45,7 @@ impl TryFrom<ConfigEnvKey> for PathBuf {
                 Err(_err) => {
                     let mut home = Self::try_from(ConfigEnvKey::Home)?;
                     home.push(".config");
-                    log::trace!(
+                    trace!(
                         "Error: error reading ${}. Using [{}]",
                         ConfigEnvKey::XDGConfigHome.as_str(),
                         home.as_os_str().to_string_lossy()
