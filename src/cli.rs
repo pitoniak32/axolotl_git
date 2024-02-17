@@ -11,7 +11,7 @@ use axl_lib::{
         config_file::{AxlConfig, AxlContext},
     },
     constants::{AxlColor, ASCII_ART},
-    subcommand_project::ProjectSubcommand,
+    project::subcommand::ProjectSubcommand,
 };
 use bat::PrettyPrinter;
 use clap::{Args, Parser, Subcommand};

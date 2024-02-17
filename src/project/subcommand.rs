@@ -1,58 +1,19 @@
-use clap::{Args, Subcommand, ValueEnum};
+use std::path::PathBuf;
+
+use clap::arg;
+use clap::Args;
+use clap::Subcommand;
+use clap::ValueEnum;
 use git_lib::repo::GitRepo;
 
-use std::{
-    fmt::Display,
-    path::{Path, PathBuf},
-};
+use crate::config::config_env::ConfigEnvKey;
+use crate::config::config_file::AxlContext;
+use crate::helper::fzf_get_sessions;
+use crate::multiplexer::Multiplexer;
+use crate::multiplexer::Multiplexers;
+use crate::project::project_directory_manager::ProjectsDirectoryFile;
 
-use serde::Serialize;
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct Project {
-    pub project_folder_path: PathBuf,
-    pub path: PathBuf,
-    pub name: String,
-    pub safe_name: String,
-    pub remote: String,
-}
-
-impl Project {
-    pub fn new(path: &Path, name: String, remote: String) -> Self {
-        Self {
-            project_folder_path: path.to_path_buf(),
-            path: path.join(name.clone()),
-            name: name.clone(),
-            safe_name: name.replace('.', "_"),
-            remote,
-        }
-    }
-
-    pub fn get_safe_name(&self) -> String {
-        self.safe_name.clone()
-    }
-
-    pub fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    pub fn get_path(&self) -> PathBuf {
-        self.path.clone()
-    }
-}
-
-impl Display for Project {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
-    }
-}
-
-use crate::{
-    config::{config_env::ConfigEnvKey, config_file::AxlContext},
-    helper::fzf_get_sessions,
-    multiplexer::{Multiplexer, Multiplexers},
-    project::project_directory_manager::ProjectsDirectoryFile,
-};
+use super::project_type::Project;
 
 #[derive(Args, Debug)]
 pub struct SessionArgs {
@@ -212,8 +173,7 @@ impl ProjectSubcommand {
                 let projects_directory_file =
                     ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
                 log::debug!("Attempting to clone {ssh_uri}...");
-                let results =
-                    GitRepo::from_ssh_uri_multi(&[&ssh_uri], &projects_directory_file.path);
+                let results = GitRepo::from_url_multi(&[&ssh_uri], &projects_directory_file.path);
                 for result in results {
                     if let Err(err) = result {
                         log::error!("Failed cloning with: {err:?}");
@@ -320,40 +280,5 @@ impl ProjectSubcommand {
                 Ok(())
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-
-    use anyhow::Result;
-    use rstest::rstest;
-    use similar_asserts::assert_eq;
-
-    use crate::subcommand_project::Project;
-
-    #[rstest]
-    fn should_create_new_project() -> Result<()> {
-        // Act
-        let project = Project::new(
-            &PathBuf::from("/test/projects/dir/"),
-            "test2".to_string(),
-            "git@github.com:user/test2.git".to_string(),
-        );
-
-        // Assert
-        assert_eq!(
-            project,
-            Project {
-                name: "test2".to_string(),
-                safe_name: "test2".to_string(),
-                project_folder_path: "/test/projects/dir/".into(),
-                path: "/test/projects/dir/test2".into(),
-                remote: "git@github.com:user/test2.git".to_string()
-            }
-        );
-
-        Ok(())
     }
 }

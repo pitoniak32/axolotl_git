@@ -8,7 +8,9 @@ use std::{
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{fzf::FzfCmd, helper::get_directories, subcommand_project::Project};
+use crate::{fzf::FzfCmd, helper::get_directories};
+
+use super::project_type::Project;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProjectsDirectoryFile {
@@ -134,7 +136,7 @@ mod tests {
     use rstest::{fixture, rstest};
     use similar_asserts::assert_eq;
 
-    use crate::subcommand_project::Project;
+    use crate::project::project_type::Project;
 
     use super::ProjectsDirectoryFile;
 
