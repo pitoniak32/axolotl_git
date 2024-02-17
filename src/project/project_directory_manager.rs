@@ -5,11 +5,11 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
-use tracing::{debug, warn};
+use tracing::{debug, instrument, warn};
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{fzf::FzfCmd, helper::get_directories};
+use crate::{error::AxlError, fzf::FzfCmd, helper::get_directories};
 
 use super::project_type::Project;
 
@@ -20,15 +20,18 @@ pub struct ProjectsDirectoryFile {
 }
 
 impl ProjectsDirectoryFile {
+    #[instrument(err)]
     pub fn new(path: &Path) -> Result<Self> {
         let projects_directory_file: Self = serde_yaml::from_str(&fs::read_to_string(path)?)?;
         Ok(projects_directory_file)
     }
 
+    #[instrument(err)]
     pub fn get_project(&self) -> Result<Project> {
         Self::pick_project(self.get_projects_from_remotes()?)
     }
 
+    #[instrument(err)]
     pub fn get_projects_from_remotes(&self) -> Result<Vec<Project>> {
         let p: Vec<_> = self
             .projects
@@ -43,6 +46,7 @@ impl ProjectsDirectoryFile {
         Ok(p)
     }
 
+    #[instrument(err)]
     pub fn get_projects_from_fs(path: &Path) -> Result<(Vec<Project>, Vec<PathBuf>)> {
         let mut ignored = vec![];
         let projects: Vec<_> = get_directories(path)?
@@ -72,10 +76,9 @@ impl ProjectsDirectoryFile {
         Ok((projects, ignored))
     }
 
+    #[instrument(err)]
     pub fn pick_project(projects: Vec<Project>) -> Result<Project> {
         let project_names = projects.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
-
-        debug!("projects: {projects:#?}");
 
         let project_name = FzfCmd::new().find_vec(project_names)?;
 
@@ -85,19 +88,19 @@ impl ProjectsDirectoryFile {
             .map_or_else(
                 || {
                     eprintln!("{}", "No project was selected.".red().bold());
-                    std::process::exit(1);
+                    Err(AxlError::NoProjectSelected)?
                 },
                 |project| Ok(project.clone()),
             )
     }
 
+    #[instrument(err)]
     pub fn pick_projects(pickable_projects: Vec<Project>) -> Result<Vec<Project>> {
         let project_names = pickable_projects
             .iter()
             .map(|p| p.name.clone())
             .collect::<Vec<_>>();
 
-        debug!("pickable_projects: {pickable_projects:#?}");
         let project_names_picked = FzfCmd::new()
             .args(vec!["--phony", "--multi"])
             .find_vec(project_names)?
@@ -115,7 +118,7 @@ impl ProjectsDirectoryFile {
 
         if projects.is_empty() {
             eprintln!("{}", "No projects were selected.".red().bold());
-            std::process::exit(1);
+            Err(AxlError::NoProjectSelected)?
         }
 
         Ok(projects)

@@ -6,8 +6,8 @@ use predicates::prelude::predicate;
 // Make some snapshot assertions on command output
 
 #[rstest]
-#[case::no_cmd_no_flag(vec![], vec![], "Usage: axl [OPTIONS] [COMMAND]")]
-#[case::no_cmd_with_flag(vec!["-v"], vec![], "No command was provided! To see commands use `--help`.")]
+#[case::no_cmd_no_flag(vec![], vec![], "Usage: axl [OPTIONS] <COMMAND>")]
+#[case::no_cmd_with_flag(vec!["-v"], vec![], "error: 'axl' requires a subcommand but one was not provided")]
 #[case::project_cmd_no_sub_cmd(vec!["project"], vec![], "Usage: axl project [OPTIONS] <COMMAND>")]
 #[case::project_cmd_open_sub_cmd(vec!["project", "open"], vec![("PROJECTS_DIRECTORY_FILE", "/test/file/path.yml")], "Usage: axl project open --projects-directory-file <PROJECTS_DIRECTORY_FILE> --multiplexer <MULTIPLEXER>")]
 fn axl_project_no_args(

@@ -1,7 +1,6 @@
 use std::{
     fs::{self, File},
     path::PathBuf,
-    process,
 };
 
 use anyhow::Result;
@@ -11,6 +10,7 @@ use axl_lib::{
         config_file::{AxlConfig, AxlContext},
     },
     constants::{AxlColor, ASCII_ART},
+    error::AxlError,
     project::subcommand::ProjectSubcommand,
 };
 use bat::PrettyPrinter;
@@ -104,7 +104,7 @@ impl Cli {
                         "\n{}\n",
                         "Provided config path does not exist.".red().bold()
                     );
-                    process::exit(1);
+                    Err(AxlError::ConfigPathDoesNotExist)?
                 }
                 self.args.config_path = Some(curr.clone());
                 self.context.config_path = curr;
@@ -135,7 +135,7 @@ impl Cli {
         Ok(())
     }
 
-    #[instrument(skip(self), fields(command.name = %self.command))]
+    #[instrument(skip(self), fields(command.name = %self.command), err)]
     pub fn handle_command(self) -> Result<()> {
         Commands::handle(self.command, self.context, self.args)?;
         Ok(())
@@ -153,7 +153,7 @@ pub enum Commands {
 }
 
 impl Commands {
-    #[instrument(skip(command, context, _args))]
+    #[instrument(skip(command, context, _args), err)]
     fn handle(command: Self, context: AxlContext, _args: SharedArgs) -> Result<()> {
         match command {
             Self::Project(subcommand) => {

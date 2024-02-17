@@ -913,6 +913,8 @@ dependencies = [
 [[package]]
 name = "git_lib"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "600ae5bf3c5c4323c8e5850b256eb61d100a6db969e0022f8043273285bc61b3"
 dependencies = [
  "anyhow",
  "git-url-parse",

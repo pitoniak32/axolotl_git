@@ -121,7 +121,7 @@ pub enum OutputFormat {
 }
 
 impl ProjectSubcommand {
-    #[instrument(skip(project_sub_cmd, _context))]
+    #[instrument(skip(project_sub_cmd, _context), err)]
     pub fn handle_cmd(project_sub_cmd: Self, _context: AxlContext) -> anyhow::Result<()> {
         match project_sub_cmd {
             Self::Open {

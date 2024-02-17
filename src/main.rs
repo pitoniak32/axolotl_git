@@ -6,7 +6,7 @@ use cli::Cli;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
-use tracing::{info_span, metadata::LevelFilter};
+use tracing::{error, info_span, metadata::LevelFilter};
 use tracing_log::AsTrace;
 use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, Layer, Registry};
 use uuid::Uuid;
@@ -19,8 +19,6 @@ async fn main() -> Result<()> {
 
     configure_tracing(cli.args.verbosity.log_level_filter().as_trace())?;
 
-    // TODO: replace process::exit with custom errors.
-
     // So the span and guard are dropped before shutting down tracer provider.
     {
         // Create a uuid that can be provided to the user to more effectively search for the command trace.
@@ -28,14 +26,27 @@ async fn main() -> Result<()> {
         let root_span = info_span!(
             "main",
             run.uuid = trace_uuid.to_string(),
-            executable.path = env::current_exe().expect("binary execution should have a current executable").to_string_lossy().to_string(),
+            executable.path = env::current_exe()
+                .expect("binary execution should have a current executable")
+                .to_string_lossy()
+                .to_string(),
             executable.version = env!("CARGO_PKG_VERSION"),
         );
         let _guard = root_span.enter();
 
         // Somehow need to merge the cli arguments with the config file to allow for overriding values
         // with flags for testing.
-        cli.init()?.handle_command()?;
+        match cli.init() {
+            Ok(cli) => match cli.handle_command() {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("An error occurred while handling command: {:?}", err);
+                }
+            },
+            Err(err) => {
+                error!("An error occurred during cli init: {:?}", err);
+            }
+        }
     }
 
     // This is needed to export all remaining spans before exiting.
@@ -68,15 +79,13 @@ fn configure_tracing(filter: LevelFilter) -> Result<()> {
                                     .tonic()
                                     .with_endpoint(url),
                             )
-                            .with_trace_config(
-                                opentelemetry_sdk::trace::config().with_resource(Resource::new(
-                                    vec![KeyValue::new(
+                            .with_trace_config(opentelemetry_sdk::trace::config().with_resource(
+                                Resource::new(vec![KeyValue::new(
                                         opentelemetry_semantic_conventions::resource::SERVICE_NAME
                                             .to_string(),
                                         env!("CARGO_PKG_NAME"),
-                                    )],
-                                )),
-                            )
+                                    )]),
+                            ))
                             .install_batch(opentelemetry_sdk::runtime::Tokio)
                             .expect("Failed creating the tracer!"),
                     ),
