@@ -47,7 +47,7 @@ impl ProjectsDirectoryFile {
         let projects: Vec<_> = get_directories(path)?
             .into_iter()
             .filter_map(|d| {
-                Git::get_remote_url(&d)
+                Git::get_remote_url("origin", &d)
                     .expect("git command to get remote should not fail")
                     .map_or_else(
                         || {
