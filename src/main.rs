@@ -6,8 +6,11 @@ use cli::Cli;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
-use tracing::{error, info_span};
-use tracing_subscriber::{prelude::__tracing_subscriber_SubscriberExt, EnvFilter, Layer, Registry};
+use tracing::{error, info_span, metadata::LevelFilter};
+use tracing_log::AsTrace;
+use tracing_subscriber::{
+    prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
+};
 use uuid::Uuid;
 
 pub mod cli;
@@ -16,7 +19,7 @@ pub mod cli;
 async fn main() -> Result<()> {
     let cli: Cli = Cli::parse();
 
-    configure_tracing()?;
+    configure_tracing(cli.args.verbosity.log_level_filter().as_trace())?;
 
     // So the span and guard are dropped before shutting down tracer provider.
     {
@@ -55,45 +58,48 @@ async fn main() -> Result<()> {
 }
 
 /// Amazing video on how this works: https://youtu.be/21rtHinFA40?si=vgARg2zxZ0ixC-yu
-fn configure_tracing() -> Result<()> {
-    let subscriber = Registry::default()
-        .with(
-            // set the default filter for all subscriber layers
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "debug".into()),
-        )
+fn configure_tracing(log_filter: LevelFilter) -> Result<()> {
+    tracing_subscriber::registry()
         .with(
             // set layer for log subscriber
             tracing_subscriber::fmt::layer()
-                .with_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "off".into())),
+                .pretty()
+                .with_filter(log_filter),
         )
         .with(std::env::var("OTEL_COLLECTOR_URL").map_or_else(
             |_| None,
             |url| {
                 Some(
-                    tracing_opentelemetry::layer().with_tracer(
-                        opentelemetry_otlp::new_pipeline()
-                            .tracing()
-                            .with_exporter(
-                                opentelemetry_otlp::new_exporter()
-                                    .tonic()
-                                    .with_endpoint(url),
-                            )
-                            .with_trace_config(opentelemetry_sdk::trace::config().with_resource(
-                                Resource::new(vec![KeyValue::new(
+                    tracing_opentelemetry::layer()
+                        .with_tracer(
+                            opentelemetry_otlp::new_pipeline()
+                                .tracing()
+                                .with_exporter(
+                                    opentelemetry_otlp::new_exporter()
+                                        .tonic()
+                                        .with_endpoint(url),
+                                )
+                                .with_trace_config(
+                                    opentelemetry_sdk::trace::config().with_resource(
+                                        Resource::new(vec![KeyValue::new(
                                         opentelemetry_semantic_conventions::resource::SERVICE_NAME
                                             .to_string(),
                                         env!("CARGO_PKG_NAME"),
                                     )]),
-                            ))
-                            .install_batch(opentelemetry_sdk::runtime::Tokio)
-                            .expect("Failed creating the tracer!"),
-                    ),
+                                    ),
+                                )
+                                .install_batch(opentelemetry_sdk::runtime::Tokio)
+                                .expect("Failed creating the tracer!"),
+                        )
+                        .with_filter(
+                            // If no `RUST_LOG` is provided use info.
+                            tracing_subscriber::EnvFilter::try_from_default_env()
+                                .unwrap_or_else(|_| "info".into()),
+                        ),
                 )
             },
-        ));
-
-    tracing::subscriber::set_global_default(subscriber)?;
+        ))
+        .init();
 
     Ok(())
 }

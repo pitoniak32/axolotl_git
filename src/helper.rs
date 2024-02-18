@@ -10,7 +10,7 @@ use tracing::{info, instrument, warn};
 
 use crate::{error::AxlError, fzf::FzfCmd};
 
-#[instrument(skip(command), err)]
+#[instrument(err)]
 pub fn wrap_command(command: &mut Command) -> Result<Output> {
     let output = command
         .stdout(Stdio::piped())

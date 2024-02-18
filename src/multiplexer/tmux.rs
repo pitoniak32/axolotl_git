@@ -29,21 +29,17 @@ impl Tmux {
                 &project.get_path(),
             )?;
         } else if Self::has_session(&project.get_safe_name()) {
-            info!(
-                "Session '{}' already exists, opening.",
-                project.get_safe_name()
-            );
-            Self::switch(&project.get_safe_name())?;
+            let safe_name = project.get_safe_name();
+            info!("Session '{safe_name}' already exists, opening.");
+            Self::switch(&safe_name)?;
         } else {
-            info!(
-                "Session '{}' does not already exist, creating and opening.",
-                project.get_safe_name(),
-            );
+            let safe_name = project.get_safe_name();
+            info!("Session '{safe_name}' does not already exist, creating and opening.",);
 
-            if Self::create_new_detached(&project.get_safe_name(), &project.get_path())
+            if Self::create_new_detached(&safe_name, &project.get_path())
                 .is_ok_and(|o| o.status.success())
             {
-                Self::switch(&project.get_safe_name())?;
+                Self::switch(&safe_name)?;
             } else {
                 eprintln!("{}", "Session failed to open.".red().bold());
             }
@@ -106,10 +102,10 @@ impl Tmux {
                 if current_session.is_empty() {
                     warn!("No session picked");
                 } else {
-                    info!("Killed {}.", current_session);
+                    info!("Killed {current_session}.");
                 }
             } else {
-                error!("Error while killing {}.", current_session)
+                error!("Error while killing {current_session}.")
             }
         }
 

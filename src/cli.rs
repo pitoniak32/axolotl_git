@@ -18,7 +18,7 @@ use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 use rand::Rng;
 use strum_macros::Display;
-use tracing::{debug, instrument};
+use tracing::{debug, info, instrument};
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -42,7 +42,7 @@ pub struct Cli {
 impl Cli {
     #[instrument(skip_all, err)]
     pub fn init(mut self) -> Result<Self> {
-        debug!("cli_before_config_init: {self:#?}");
+        info!("cli_before_config_init: {self:#?}");
         let _ = &self.set_config_path()?;
         let axl_config: AxlConfig = AxlConfig::from_file(&self.context.config_path)?;
         if axl_config.general.show_art {
@@ -166,6 +166,9 @@ impl Commands {
 
 #[derive(Args, Debug)]
 pub struct SharedArgs {
+    #[clap(flatten)]
+    pub verbosity: clap_verbosity_flag::Verbosity,
+
     /// Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.axlrc.yml' defaults.
     #[arg(short, long)]
     config_path: Option<PathBuf>,
