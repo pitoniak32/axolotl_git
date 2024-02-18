@@ -4,6 +4,7 @@ use std::{
 };
 
 use serde::Serialize;
+use tracing::instrument;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct Project {
@@ -15,6 +16,7 @@ pub struct Project {
 }
 
 impl Project {
+    #[instrument]
     pub fn new(path: &Path, name: String, remote: String) -> Self {
         Self {
             project_folder_path: path.to_path_buf(),
@@ -25,14 +27,17 @@ impl Project {
         }
     }
 
+    #[instrument]
     pub fn get_safe_name(&self) -> String {
         self.safe_name.clone()
     }
 
+    #[instrument]
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
 
+    #[instrument]
     pub fn get_path(&self) -> PathBuf {
         self.path.clone()
     }

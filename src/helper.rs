@@ -6,9 +6,11 @@ use std::{
 
 use anyhow::Result;
 use colored::Colorize;
+use tracing::{info, instrument, warn};
 
-use crate::fzf::FzfCmd;
+use crate::{error::AxlError, fzf::FzfCmd};
 
+#[instrument(err)]
 pub fn wrap_command(command: &mut Command) -> Result<Output> {
     let output = command
         .stdout(Stdio::piped())
@@ -18,18 +20,19 @@ pub fn wrap_command(command: &mut Command) -> Result<Output> {
 
     // Use log crate to allow verbosity flag to control wrapped command logs.
     if output.status.success() && !output.stdout.is_empty() {
-        log::info!("{}", String::from_utf8_lossy(&output.stdout).trim());
+        info!("{}", String::from_utf8_lossy(&output.stdout).trim());
     } else if !output.stderr.is_empty() {
-        log::warn!("{}", String::from_utf8_lossy(&output.stderr).trim());
+        warn!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }
 
     Ok(output)
 }
 
+#[instrument(err)]
 pub fn fzf_get_sessions(session_names: Vec<String>) -> Result<Vec<String>> {
     if session_names.is_empty() {
         eprintln!("\n{}\n", "No sessions found to choose from.".blue().bold());
-        std::process::exit(0);
+        Err(AxlError::NoSessionsFound)?
     }
 
     Ok(FzfCmd::new()
@@ -41,6 +44,7 @@ pub fn fzf_get_sessions(session_names: Vec<String>) -> Result<Vec<String>> {
         .collect())
 }
 
+#[instrument(err)]
 pub fn get_directories(path: &Path) -> Result<Vec<PathBuf>> {
     Ok(fs::read_dir(path)?
         .filter_map(|dir| match dir {

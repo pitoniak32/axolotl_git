@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Output},
 };
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     config::config_env::ConfigEnvKey,
@@ -15,8 +16,9 @@ use crate::{
 pub struct Tmux;
 
 impl Tmux {
+    #[instrument(skip(_proj_args), err)]
     pub fn open(_proj_args: &ProjectArgs, project: Project) -> Result<()> {
-        log::info!(
+        info!(
             "Attempting to open Tmux session with project: {:?}!",
             project,
         );
@@ -27,21 +29,17 @@ impl Tmux {
                 &project.get_path(),
             )?;
         } else if Self::has_session(&project.get_safe_name()) {
-            log::info!(
-                "Session '{}' already exists, opening.",
-                project.get_safe_name()
-            );
-            Self::switch(&project.get_safe_name())?;
+            let safe_name = project.get_safe_name();
+            info!("Session '{safe_name}' already exists, opening.");
+            Self::switch(&safe_name)?;
         } else {
-            log::info!(
-                "Session '{}' does not already exist, creating and opening.",
-                project.get_safe_name(),
-            );
+            let safe_name = project.get_safe_name();
+            info!("Session '{safe_name}' does not already exist, creating and opening.",);
 
-            if Self::create_new_detached(&project.get_safe_name(), &project.get_path())
+            if Self::create_new_detached(&safe_name, &project.get_path())
                 .is_ok_and(|o| o.status.success())
             {
-                Self::switch(&project.get_safe_name())?;
+                Self::switch(&safe_name)?;
             } else {
                 eprintln!("{}", "Session failed to open.".red().bold());
             }
@@ -50,6 +48,7 @@ impl Tmux {
         Ok(())
     }
 
+    #[instrument]
     pub fn list_sessions() -> Vec<String> {
         String::from_utf8_lossy(
             &wrap_command(Command::new("tmux").arg("ls"))
@@ -63,6 +62,7 @@ impl Tmux {
         .collect()
     }
 
+    #[instrument]
     pub fn get_current_session() -> String {
         String::from_utf8_lossy(
             &wrap_command(
@@ -78,6 +78,7 @@ impl Tmux {
         .to_string()
     }
 
+    #[instrument(err)]
     pub fn kill_sessions(sessions: &[String], current_session: &str) -> Result<()> {
         sessions
             .iter()
@@ -85,32 +86,33 @@ impl Tmux {
             .for_each(|s| {
                 if Self::kill_session(s).is_ok() {
                     if s.is_empty() {
-                        log::warn!("No session picked");
+                        warn!("No session picked");
                     } else {
-                        log::info!("Killed {}.", s);
+                        info!("Killed {}.", s);
                     }
                 } else {
-                    log::error!("Error while killing {}.", s)
+                    error!("Error while killing {}.", s)
                 }
             });
 
         if sessions.contains(&current_session.to_string()) {
-            log::debug!("current session [{current_session}] was included to be killed.");
+            debug!("current session [{current_session}] was included to be killed.");
 
             if Self::kill_session(current_session).is_ok() {
                 if current_session.is_empty() {
-                    log::warn!("No session picked");
+                    warn!("No session picked");
                 } else {
-                    log::info!("Killed {}.", current_session);
+                    info!("Killed {current_session}.");
                 }
             } else {
-                log::error!("Error while killing {}.", current_session)
+                error!("Error while killing {current_session}.")
             }
         }
 
         Ok(())
     }
 
+    #[instrument(err)]
     pub fn unique_session() -> Result<()> {
         for i in 0..10 {
             let name = &i.to_string();
@@ -131,6 +133,7 @@ impl Tmux {
 
 impl Tmux {
     #[allow(dead_code)] // This will likely be needed eventually.
+    #[instrument(err)]
     fn create_new_detached_attach_if_exists(name: &str, path: &Path) -> Result<Output> {
         wrap_command(Command::new("tmux").args([
             "new-session",
@@ -142,6 +145,7 @@ impl Tmux {
         ]))
     }
 
+    #[instrument(err)]
     fn create_new_attached_attach_if_exists(name: &str, path: &Path) -> Result<Output> {
         wrap_command(Command::new("tmux").args([
             "new-session",
@@ -153,6 +157,7 @@ impl Tmux {
         ]))
     }
 
+    #[instrument(err)]
     fn create_new_detached(name: &str, path: &Path) -> Result<Output> {
         wrap_command(Command::new("tmux").args([
             "new-session",
@@ -164,10 +169,12 @@ impl Tmux {
         ]))
     }
 
+    #[instrument(err)]
     fn switch(to_name: &str) -> Result<Output> {
         wrap_command(Command::new("tmux").args(["switch-client", "-t", to_name]))
     }
 
+    #[instrument]
     fn has_session(project_name: &str) -> bool {
         let output = wrap_command(Command::new("tmux").args([
             "has-session",
@@ -178,6 +185,7 @@ impl Tmux {
         output.is_ok_and(|o| o.status.success())
     }
 
+    #[instrument(err)]
     fn kill_session(project_name: &str) -> Result<()> {
         wrap_command(Command::new("tmux").args([
             "kill-session",
@@ -187,6 +195,7 @@ impl Tmux {
         Ok(())
     }
 
+    #[instrument]
     fn in_session() -> bool {
         env::var("TMUX").is_ok()
     }

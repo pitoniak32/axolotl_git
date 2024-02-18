@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::ValueEnum;
+use tracing::instrument;
 
 use crate::project::{project_type::Project, subcommand::ProjectArgs};
 
@@ -21,6 +22,7 @@ pub enum Multiplexers {
 }
 
 impl Multiplexer for Multiplexers {
+    #[instrument(skip_all, err)]
     fn open(self, proj_args: &ProjectArgs, project: Project) -> Result<()> {
         match self {
             Self::Tmux => {
@@ -30,24 +32,28 @@ impl Multiplexer for Multiplexers {
         Ok(())
     }
 
+    #[instrument(skip_all)]
     fn get_sessions(self) -> Vec<String> {
         match self {
             Self::Tmux => Tmux::list_sessions(),
         }
     }
 
+    #[instrument(skip_all)]
     fn get_current_session(self) -> String {
         match self {
             Self::Tmux => Tmux::get_current_session(),
         }
     }
 
+    #[instrument(skip(self), err)]
     fn kill_sessions(self, sessions: Vec<String>, current_session: &str) -> Result<()> {
         match self {
             Self::Tmux => Tmux::kill_sessions(&sessions, current_session),
         }
     }
 
+    #[instrument(skip_all, err)]
     fn unique_session(self) -> Result<()> {
         match self {
             Self::Tmux => Tmux::unique_session(),
