@@ -16,7 +16,14 @@ use super::project_type::Project;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProjectsDirectoryFile {
     pub path: PathBuf,
-    pub projects: Vec<String>,
+    pub projects: Vec<ProjectConfigType>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+pub struct ProjectConfigType {
+    name: Option<String>,
+    remote: String,
+    tags: Option<Vec<String>>,
 }
 
 impl ProjectsDirectoryFile {
@@ -27,23 +34,50 @@ impl ProjectsDirectoryFile {
     }
 
     #[instrument(err)]
+    pub fn new_filtered(path: &Path, tags: &Option<Vec<String>>) -> Result<Self> {
+        let mut projects_directory_file: Self = serde_yaml::from_str(&fs::read_to_string(path)?)?;
+
+        if let Some(given_tags) = tags {
+            let filtered = projects_directory_file
+                .projects
+                .clone()
+                .into_iter()
+                .filter(|project| {
+                    project.tags.clone().is_some_and(|project_tags| {
+                        project_tags.iter().any(|tag| given_tags.contains(tag))
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            if filtered.len() < projects_directory_file.projects.len() {
+                projects_directory_file.projects = filtered;
+            }
+        }
+
+        Ok(projects_directory_file)
+    }
+
+    #[instrument(err)]
     pub fn get_project(&self) -> Result<Project> {
         Self::pick_project(self.get_projects_from_remotes()?)
     }
 
     #[instrument(err)]
     pub fn get_projects_from_remotes(&self) -> Result<Vec<Project>> {
-        let p: Vec<_> = self
-            .projects
+        self.projects
             .iter()
-            .map(|remote| {
-                let name = Git::parse_url(remote)
-                    .expect("provided git urls should be parsable")
-                    .name;
-                Project::new(&self.path, name, remote.to_string())
+            .map(|project_config_type| {
+                Ok(Project::new(
+                    &self.path,
+                    project_config_type
+                        .name
+                        .clone()
+                        .unwrap_or(Git::parse_url(&project_config_type.remote)?.name),
+                    project_config_type.remote.to_string(),
+                    project_config_type.tags.clone(),
+                ))
             })
-            .collect();
-        Ok(p)
+            .collect::<Result<Vec<Project>>>()
     }
 
     #[instrument(err)]
@@ -68,6 +102,7 @@ impl ProjectsDirectoryFile {
                                     .to_string_lossy()
                                     .to_string(),
                                 remote,
+                                None,
                             ))
                         },
                     )
@@ -140,7 +175,7 @@ mod tests {
     use rstest::{fixture, rstest};
     use similar_asserts::assert_eq;
 
-    use crate::project::project_type::Project;
+    use crate::project::{project_directory_manager::ProjectConfigType, project_type::Project};
 
     use super::ProjectsDirectoryFile;
 
@@ -149,7 +184,18 @@ mod tests {
         // Arrange
         let file = NamedTempFile::new("projects_test_1.txt")
             .expect("test fixture tmp file can be created");
-        file.write_str("path: \"/test/projects/dir\"\nprojects:\n- git@github.com:user/test1.git\n- git@github.com:user/test2.git").expect("test fixture tmp file can be written to");
+        file.write_str(
+            "path: \"/test/projects/dir\"
+projects:
+  - remote: git@github.com:user/test1.git
+    tags:
+      - tester_repo
+      - prod
+  - remote: git@github.com:user/test2.git
+    tags: [grouped]
+    name: test2_rename",
+        )
+        .expect("test fixture tmp file can be written to");
         file
     }
 
@@ -162,6 +208,7 @@ mod tests {
                 project_folder_path: "/test/projects/dir/".into(),
                 path: "/test/projects/dir/test1".into(),
                 remote: "git@github.com:user/test1.git".to_string(),
+                tags: Some(vec!["test1".to_string()]),
             },
             Project {
                 name: "test2".to_string(),
@@ -169,6 +216,7 @@ mod tests {
                 project_folder_path: "/test/projects/dir/".into(),
                 path: "/test/projects/dir/test2".into(),
                 remote: "git@github.com:user/test2.git".to_string(),
+                tags: None,
             },
         ]
     }
@@ -184,7 +232,7 @@ mod tests {
             .expect("child_config should get created");
         child_config
             .write_str(&format!(
-                "path: \"{}\"\nprojects:\n- git@github.com:test_user/test_repo1.git\n- git@github.com:test_user/test_repo2.git",
+                "path: \"{}\"\nprojects:\n- remote: git@github.com:test_user/test_repo1.git\n- remote: git@github.com:test_user/test_repo2.git",
                 &projects.path().join("projects").to_string_lossy()
             ))
             .expect("should be able to write to file");
@@ -226,8 +274,16 @@ mod tests {
             ProjectsDirectoryFile {
                 path: "/test/projects/dir".into(),
                 projects: vec![
-                    "git@github.com:user/test1.git".to_string(),
-                    "git@github.com:user/test2.git".to_string()
+                    ProjectConfigType {
+                        remote: "git@github.com:user/test1.git".to_string(),
+                        name: None,
+                        tags: Some(vec!["tester_repo".to_string(), "prod".to_string()])
+                    },
+                    ProjectConfigType {
+                        remote: "git@github.com:user/test2.git".to_string(),
+                        name: Some("test2_rename".to_string()),
+                        tags: Some(vec!["grouped".to_string()])
+                    },
                 ]
             }
         );
@@ -254,16 +310,45 @@ mod tests {
                     safe_name: "test1".to_string(),
                     project_folder_path: "/test/projects/dir/".into(),
                     path: "/test/projects/dir/test1".into(),
-                    remote: "git@github.com:user/test1.git".to_string()
+                    remote: "git@github.com:user/test1.git".to_string(),
+                    tags: Some(vec!["tester_repo".to_string(), "prod".to_string()]),
                 },
                 Project {
-                    name: "test2".to_string(),
-                    safe_name: "test2".to_string(),
+                    name: "test2_rename".to_string(),
+                    safe_name: "test2_rename".to_string(),
                     project_folder_path: "/test/projects/dir/".into(),
-                    path: "/test/projects/dir/test2".into(),
-                    remote: "git@github.com:user/test2.git".to_string()
+                    path: "/test/projects/dir/test2_rename".into(),
+                    remote: "git@github.com:user/test2.git".to_string(),
+                    tags: Some(vec!["grouped".to_string()]),
                 },
             ]
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn should_turn_remotes_into_project_structs_and_filter_by_tags(
+        #[from(projects_directory_file_1)] test_file: NamedTempFile,
+    ) -> Result<()> {
+        // Arrange
+        let projects_directory_file =
+            ProjectsDirectoryFile::new_filtered(test_file.path(), &Some(vec!["prod".to_string()]))?;
+
+        // Act
+        let projects = projects_directory_file.get_projects_from_remotes()?;
+
+        // Assert
+        assert_eq!(
+            projects,
+            vec![Project {
+                name: "test1".to_string(),
+                safe_name: "test1".to_string(),
+                project_folder_path: "/test/projects/dir".into(),
+                path: "/test/projects/dir/test1".into(),
+                remote: "git@github.com:user/test1.git".to_string(),
+                tags: Some(vec!["tester_repo".to_string(), "prod".to_string()]),
+            },]
         );
 
         Ok(())
@@ -285,6 +370,7 @@ mod tests {
             project_folder_path: projects_dir_path.clone(),
             path: projects_dir_path.join("test_repo1"),
             remote: "git@github.com:test_user/test_repo1.git".to_string(),
+            tags: None,
         },),);
         assert!(projects.0.contains(&Project {
             name: "test_repo2".to_string(),
@@ -292,6 +378,7 @@ mod tests {
             project_folder_path: projects_dir_path.clone(),
             path: projects_dir_path.join("test_repo2"),
             remote: "git@github.com:test_user/test_repo2.git".to_string(),
+            tags: None,
         }));
         assert_eq!(
             projects.1,

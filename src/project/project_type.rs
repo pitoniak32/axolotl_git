@@ -13,17 +13,19 @@ pub struct Project {
     pub name: String,
     pub safe_name: String,
     pub remote: String,
+    pub tags: Option<Vec<String>>,
 }
 
 impl Project {
     #[instrument]
-    pub fn new(path: &Path, name: String, remote: String) -> Self {
+    pub fn new(path: &Path, name: String, remote: String, tags: Option<Vec<String>>) -> Self {
         Self {
             project_folder_path: path.to_path_buf(),
             path: path.join(name.clone()),
             name: name.clone(),
             safe_name: name.replace('.', "_"),
             remote,
+            tags,
         }
     }
 
@@ -60,12 +62,13 @@ mod tests {
     use crate::project::project_type::Project;
 
     #[rstest]
-    fn should_create_new_project() -> Result<()> {
+    fn should_create_new_project_with_no_tags() -> Result<()> {
         // Act
         let project = Project::new(
             &PathBuf::from("/test/projects/dir/"),
             "test2".to_string(),
             "git@github.com:user/test2.git".to_string(),
+            None,
         );
 
         // Assert
@@ -76,7 +79,60 @@ mod tests {
                 safe_name: "test2".to_string(),
                 project_folder_path: "/test/projects/dir/".into(),
                 path: "/test/projects/dir/test2".into(),
-                remote: "git@github.com:user/test2.git".to_string()
+                remote: "git@github.com:user/test2.git".to_string(),
+                tags: None,
+            }
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn should_create_new_project_with_tags() -> Result<()> {
+        // Act
+        let project = Project::new(
+            &PathBuf::from("/test/projects/dir/"),
+            "test2".to_string(),
+            "git@github.com:user/test2.git".to_string(),
+            Some(vec!["tester".to_string(), "awesome_repo".to_string()]),
+        );
+
+        // Assert
+        assert_eq!(
+            project,
+            Project {
+                name: "test2".to_string(),
+                safe_name: "test2".to_string(),
+                project_folder_path: "/test/projects/dir/".into(),
+                path: "/test/projects/dir/test2".into(),
+                remote: "git@github.com:user/test2.git".to_string(),
+                tags: Some(vec!["tester".to_string(), "awesome_repo".to_string()]),
+            }
+        );
+
+        Ok(())
+    }
+
+    #[rstest]
+    fn should_handle_dot_at_start() -> Result<()> {
+        // Act
+        let project = Project::new(
+            &PathBuf::from("/test/projects/dir/"),
+            ".test2".to_string(),
+            "git@github.com:user/.test2.git".to_string(),
+            Some(vec!["tester".to_string()]),
+        );
+
+        // Assert
+        assert_eq!(
+            project,
+            Project {
+                name: ".test2".to_string(),
+                safe_name: "_test2".to_string(),
+                project_folder_path: "/test/projects/dir/".into(),
+                path: "/test/projects/dir/.test2".into(),
+                remote: "git@github.com:user/.test2.git".to_string(),
+                tags: Some(vec!["tester".to_string()]),
             }
         );
 

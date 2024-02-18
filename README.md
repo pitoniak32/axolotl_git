@@ -26,12 +26,14 @@ Add a projects directory file
 example:
 path: `~/.config/axl/personal_projects.yml`
 ```yml
-path: "/home/your_user/Projects"
+path: "/path/to/your/Projects"
 projects: 
-  - git@github.com:your_github/your_project.git
-  - git@github.com:your_github/your_other_project.git
+  - remote: git@github.com:your_github/your_project.git
+    tags: [test_tag]
+  - remote: git@github.com:your_github/your_other_project.git
+    name: renamed_project
 ```
-now let `axl` know you would like to use this file with:
+Now let `axl` know you would like to use this file with:
  - an env var `export PROJECTS_DIRECTORY_FILE=~/.config/axl/personal_projects.yml`
  - a flag `--projects-directory-file=~/.config/axl/personal_projects.yml`
 

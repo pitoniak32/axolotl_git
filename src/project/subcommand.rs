@@ -28,17 +28,13 @@ pub struct SessionArgs {
 
 #[derive(Args, Debug)]
 pub struct ProjectArgs {
-    #[arg(short, long)]
-    /// Name of session, defaults to project_dir name
-    pub name: Option<String>,
-
     /// Manually set the project root dir.
     #[arg(long, env)]
     projects_directory_file: PathBuf,
 
-    #[arg(short, long)]
-    /// Name of session, defaults to project_dir name
-    pub project_dir: Option<PathBuf>,
+    /// Comma delimited list of tags narrowing projects that will be operated on.
+    #[arg(long, short, value_delimiter = ',')]
+    tags: Option<Vec<String>>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -56,6 +52,12 @@ pub enum ProjectSubcommand {
         proj_args: ProjectArgs,
         #[clap(flatten)]
         sess_args: SessionArgs,
+        #[arg(short, long)]
+        /// Name of session, defaults to project_dir name
+        name: Option<String>,
+        #[arg(short, long)]
+        /// Name of session, defaults to project_dir name
+        project_dir: Option<PathBuf>,
     },
     /// Kill sessions.
     Kill {
@@ -132,8 +134,10 @@ impl ProjectSubcommand {
                     "using [{:?}] projects file.",
                     proj_args.projects_directory_file
                 );
-                let projects_directory_file =
-                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                let projects_directory_file = ProjectsDirectoryFile::new_filtered(
+                    &proj_args.projects_directory_file,
+                    &proj_args.tags,
+                )?;
                 let project = projects_directory_file.get_project()?;
                 sess_args.multiplexer.open(&proj_args, project)?;
                 Ok(())
@@ -141,19 +145,16 @@ impl ProjectSubcommand {
             Self::Scratch {
                 proj_args,
                 sess_args,
+                name,
+                project_dir,
             } => {
                 sess_args.multiplexer.open(
                     &proj_args,
                     Project::new(
-                        &proj_args
-                            .project_dir
-                            .clone()
-                            .unwrap_or(PathBuf::try_from(ConfigEnvKey::Home)?),
-                        proj_args
-                            .name
-                            .clone()
-                            .unwrap_or_else(|| "scratch".to_string()),
+                        &project_dir.unwrap_or(PathBuf::try_from(ConfigEnvKey::Home)?),
+                        name.unwrap_or_else(|| "scratch".to_string()),
                         "".to_owned(),
+                        None,
                     ),
                 )?;
                 Ok(())
@@ -175,8 +176,10 @@ impl ProjectSubcommand {
                     "using [{:?}] projects file.",
                     proj_args.projects_directory_file
                 );
-                let projects_directory_file =
-                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                let projects_directory_file = ProjectsDirectoryFile::new_filtered(
+                    &proj_args.projects_directory_file,
+                    &proj_args.tags,
+                )?;
                 debug!("Attempting to clone {ssh_uri}...");
                 let results = GitRepo::from_url_multi(&[&ssh_uri], &projects_directory_file.path);
                 for result in results {
@@ -187,8 +190,10 @@ impl ProjectSubcommand {
                 Ok(())
             }
             Self::Report { proj_args } => {
-                let projects_directory_file =
-                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                let projects_directory_file = ProjectsDirectoryFile::new_filtered(
+                    &proj_args.projects_directory_file,
+                    &proj_args.tags,
+                )?;
                 trace!(
                     "getting projects from fs [{}]",
                     &projects_directory_file.path.to_string_lossy()
@@ -259,8 +264,10 @@ impl ProjectSubcommand {
                 Ok(())
             }
             Self::List { proj_args, output } => {
-                let projects_directory_file =
-                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                let projects_directory_file = ProjectsDirectoryFile::new_filtered(
+                    &proj_args.projects_directory_file,
+                    &proj_args.tags,
+                )?;
                 let projects = projects_directory_file.get_projects_from_remotes()?;
                 match output {
                     OutputFormat::Debug => {
