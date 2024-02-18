@@ -70,7 +70,7 @@ This cli is instrumented with tokio tracing. If you increase the verbosity of th
 
 To modify the verbosity of the logs, use:
 - `-v` or `-q` for the console output.
-- `RUST_LOG=<trace,debug,info,warn,error>` for the traces that are shipped to the optional OTEL collector.
+- `RUST_LOG=<trace,debug,info,warn,error>` for the traces that are shipped to the optional OTEL collector. (see [this](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#directives) for more advanced options)
 
 By default the otel collector layer is not added. If you would like traces to be exported to a collector, you should set the environment variable `OTEL_COLLECTOR_URL` to a url where your collector is running. This will configure the cli to export your traces with otlp to your collector. They can then be shipped out to any exporter of your choosing.
 
