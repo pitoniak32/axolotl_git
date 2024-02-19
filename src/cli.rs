@@ -15,6 +15,7 @@ use axl_lib::{
 };
 use bat::PrettyPrinter;
 use clap::{Args, Parser, Subcommand};
+use clap_verbosity_flag::LogLevel;
 use colored::Colorize;
 use rand::Rng;
 use strum_macros::Display;
@@ -167,9 +168,18 @@ impl Commands {
 #[derive(Args, Debug)]
 pub struct SharedArgs {
     #[clap(flatten)]
-    pub verbosity: clap_verbosity_flag::Verbosity,
+    pub verbosity: clap_verbosity_flag::Verbosity<OffLevel>,
 
     /// Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.axlrc.yml' defaults.
     #[arg(short, long)]
     config_path: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+pub struct OffLevel;
+
+impl LogLevel for OffLevel {
+    fn default() -> Option<tracing_log::log::Level> {
+        None
+    }
 }
