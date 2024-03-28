@@ -26,7 +26,7 @@ const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
 const OS_PLATFORM: &str = std::env::consts::OS;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about)]
+#[command(author, version = concat!(env!("CARGO_PKG_VERSION"), "-", env!("GIT_HASH")), about)]
 #[command(propagate_version = true)]
 #[command(arg_required_else_help = true)]
 pub struct Cli {
