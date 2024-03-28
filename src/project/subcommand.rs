@@ -5,6 +5,7 @@ use clap::arg;
 use clap::Args;
 use clap::Subcommand;
 use clap::ValueEnum;
+use colored::Colorize;
 use git_lib::git::Git;
 use git_lib::repo::GitRepo;
 use tracing::debug;
@@ -110,8 +111,10 @@ pub enum ProjectSubcommand {
     New {
         #[clap(flatten)]
         proj_args: ProjectArgs,
+        /// If the repo should be initialized in the project directory
         #[arg(long)]
         init: bool,
+        /// remote uri of repository you would like to add
         ssh_uri: String,
     }, // Like ThePrimagen Harpoon in nvim but for multiplexer sessions
        // Harpoon(ProjectArgs),
@@ -199,10 +202,27 @@ impl ProjectSubcommand {
                 );
                 let mut projects_directory_file =
                     ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                if projects_directory_file
+                    .projects
+                    .iter()
+                    .filter(|config_proj| config_proj.remote == ssh_uri)
+                    .count()
+                    > 0
+                {
+                    eprintln!(
+                        "{}",
+                        "Project with this remote already exists in your projects_directory_file"
+                            .red()
+                            .bold()
+                    );
+                    return Ok(());
+                }
                 debug!("Attempting to clone {ssh_uri}...");
                 if init {
                     let parsed = Git::parse_url(&ssh_uri)?;
-                    let project_dir = projects_directory_file.projects_directory.join(parsed.name.clone());
+                    let project_dir = projects_directory_file
+                        .projects_directory
+                        .join(parsed.name);
 
                     if !project_dir.exists() {
                         fs::create_dir(&project_dir)?;
