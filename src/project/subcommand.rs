@@ -1,9 +1,11 @@
+use std::fs;
 use std::path::PathBuf;
 
 use clap::arg;
 use clap::Args;
 use clap::Subcommand;
 use clap::ValueEnum;
+use git_lib::git::Git;
 use git_lib::repo::GitRepo;
 use tracing::debug;
 use tracing::error;
@@ -15,6 +17,7 @@ use crate::config::config_file::AxlContext;
 use crate::helper::fzf_get_sessions;
 use crate::multiplexer::Multiplexer;
 use crate::multiplexer::Multiplexers;
+use crate::project::project_directory_manager::ProjectConfigType;
 use crate::project::project_directory_manager::ProjectsDirectoryFile;
 
 use super::project_type::Project;
@@ -31,7 +34,10 @@ pub struct ProjectArgs {
     /// Manually set the project root dir.
     #[arg(long, env)]
     projects_directory_file: PathBuf,
+}
 
+#[derive(Args, Debug)]
+pub struct FilterArgs {
     /// Comma delimited list of tags narrowing projects that will be operated on.
     #[arg(long, short, value_delimiter = ',')]
     tags: Option<Vec<String>>,
@@ -43,6 +49,8 @@ pub enum ProjectSubcommand {
     Open {
         #[clap(flatten)]
         proj_args: ProjectArgs,
+        #[clap(flatten)]
+        filter_args: FilterArgs,
         #[clap(flatten)]
         sess_args: SessionArgs,
     },
@@ -73,6 +81,8 @@ pub enum ProjectSubcommand {
     List {
         #[clap(flatten)]
         proj_args: ProjectArgs,
+        #[clap(flatten)]
+        filter_args: FilterArgs,
         #[arg(short, long, value_enum, default_value_t=OutputFormat::Debug)]
         output: OutputFormat,
     },
@@ -80,6 +90,8 @@ pub enum ProjectSubcommand {
     ///
     /// This will pick projects, from a specified directory, and give a yaml string to add into your config file.
     Import {
+        #[clap(flatten)]
+        proj_args: ProjectArgs,
         /// The projects directory to pick from
         #[arg(short, long)]
         directory: PathBuf,
@@ -91,11 +103,15 @@ pub enum ProjectSubcommand {
     Report {
         #[clap(flatten)]
         proj_args: ProjectArgs,
+        #[clap(flatten)]
+        filter_args: FilterArgs,
     },
     /// Clone a new repo into your projects dir.
     New {
         #[clap(flatten)]
         proj_args: ProjectArgs,
+        #[arg(long)]
+        init: bool,
         ssh_uri: String,
     }, // Like ThePrimagen Harpoon in nvim but for multiplexer sessions
        // Harpoon(ProjectArgs),
@@ -128,6 +144,7 @@ impl ProjectSubcommand {
         match project_sub_cmd {
             Self::Open {
                 proj_args,
+                filter_args,
                 sess_args,
             } => {
                 debug!(
@@ -136,7 +153,7 @@ impl ProjectSubcommand {
                 );
                 let projects_directory_file = ProjectsDirectoryFile::new_filtered(
                     &proj_args.projects_directory_file,
-                    &proj_args.tags,
+                    &filter_args.tags,
                 )?;
                 let project = projects_directory_file.get_project()?;
                 sess_args.multiplexer.open(&proj_args, project)?;
@@ -171,35 +188,69 @@ impl ProjectSubcommand {
                 Ok(())
             }
             Self::Home { sess_args } => sess_args.multiplexer.unique_session(),
-            Self::New { proj_args, ssh_uri } => {
+            Self::New {
+                proj_args,
+                init,
+                ssh_uri,
+            } => {
                 debug!(
                     "using [{:?}] projects file.",
                     proj_args.projects_directory_file
                 );
-                let projects_directory_file = ProjectsDirectoryFile::new_filtered(
-                    &proj_args.projects_directory_file,
-                    &proj_args.tags,
-                )?;
+                let mut projects_directory_file =
+                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
                 debug!("Attempting to clone {ssh_uri}...");
-                let results = GitRepo::from_url_multi(&[&ssh_uri], &projects_directory_file.path);
-                for result in results {
-                    if let Err(err) = result {
-                        error!("Failed cloning with: {err:?}");
+                if init {
+                    let parsed = Git::parse_url(&ssh_uri)?;
+                    let project_dir = projects_directory_file.projects_directory.join(parsed.name.clone());
+
+                    if !project_dir.exists() {
+                        fs::create_dir(&project_dir)?;
                     }
+
+                    if !Git::is_inside_worktree(&project_dir) {
+                        Git::init(&project_dir)?;
+                        Git::add_remote("origin", &ssh_uri, &project_dir)?;
+                    }
+                    projects_directory_file.add_config_projects(vec![ProjectConfigType {
+                        name: None,
+                        remote: ssh_uri,
+                        tags: None,
+                    }])?;
+                } else {
+                    let results = GitRepo::from_url_multi(
+                        &[&ssh_uri],
+                        &projects_directory_file.projects_directory,
+                    );
+                    for result in results {
+                        if let Err(err) = result {
+                            error!("Failed cloning with: {err:?}");
+                        }
+                    }
+                    projects_directory_file.add_config_projects(vec![ProjectConfigType {
+                        name: None,
+                        remote: ssh_uri,
+                        tags: None,
+                    }])?;
                 }
+
                 Ok(())
             }
-            Self::Report { proj_args } => {
+            Self::Report {
+                proj_args,
+                filter_args,
+            } => {
                 let projects_directory_file = ProjectsDirectoryFile::new_filtered(
                     &proj_args.projects_directory_file,
-                    &proj_args.tags,
+                    &filter_args.tags,
                 )?;
                 trace!(
                     "getting projects from fs [{}]",
-                    &projects_directory_file.path.to_string_lossy()
+                    &projects_directory_file.projects_directory.to_string_lossy()
                 );
-                let projects_fs =
-                    ProjectsDirectoryFile::get_projects_from_fs(&projects_directory_file.path)?;
+                let projects_fs = ProjectsDirectoryFile::get_projects_from_fs(
+                    &projects_directory_file.projects_directory,
+                )?;
                 trace!("got projects from fs [{:#?}]", &projects_fs);
                 trace!(
                     "getting projects from project_directory_file [{}] remotes",
@@ -222,7 +273,7 @@ impl ProjectSubcommand {
                     .collect::<Vec<_>>();
                 println!(
                     "PROJECTS REPORT ({})",
-                    projects_directory_file.path.to_string_lossy()
+                    projects_directory_file.projects_directory.to_string_lossy()
                 );
                 println!("===============");
                 println!(
@@ -236,7 +287,7 @@ impl ProjectSubcommand {
                 if !filtered.is_empty() {
                     println!(
                         "items in [{}] not tracked in config list: ",
-                        projects_directory_file.path.to_string_lossy()
+                        projects_directory_file.projects_directory.to_string_lossy()
                     );
                     println!("{:#?}", filtered.iter().collect::<Vec<_>>());
                 }
@@ -244,29 +295,55 @@ impl ProjectSubcommand {
                 if !projects_fs.1.is_empty() {
                     println!(
                         "ignored items in [{}]: ",
-                        projects_directory_file.path.to_string_lossy()
+                        projects_directory_file.projects_directory.to_string_lossy()
                     );
                     println!("{:#?}", projects_fs.1.iter().collect::<Vec<_>>());
                 }
                 Ok(())
             }
-            Self::Import { directory } => {
-                let projects = ProjectsDirectoryFile::pick_projects(
-                    ProjectsDirectoryFile::get_projects_from_fs(&directory)?.0,
+            Self::Import {
+                proj_args,
+                directory,
+            } => {
+                let mut project_directory_file =
+                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+
+                let existing_projects = project_directory_file
+                    .projects
+                    .clone()
+                    .into_iter()
+                    .map(|ep| ep.remote)
+                    .collect::<Vec<_>>();
+
+                trace!("existing: {existing_projects:?}");
+
+                let selected_projects = ProjectsDirectoryFile::pick_config_projects(
+                    ProjectsDirectoryFile::get_projects_from_fs(&directory)?
+                        .0
+                        .into_iter()
+                        .filter(|sp| !existing_projects.contains(&sp.remote))
+                        .map(|sp| ProjectConfigType {
+                            name: None,
+                            remote: sp.remote,
+                            tags: sp.tags,
+                        })
+                        .collect::<Vec<_>>(),
                 )?;
 
-                let projects = projects.into_iter().map(|p| p.remote).collect::<Vec<_>>();
-                println!(
-                    "Copy into your project file list:\n---\n{}",
-                    serde_yaml::to_string(&projects)?
-                );
+                trace!("selected: {selected_projects:?}");
+
+                project_directory_file.add_config_projects(selected_projects)?;
 
                 Ok(())
             }
-            Self::List { proj_args, output } => {
+            Self::List {
+                proj_args,
+                filter_args,
+                output,
+            } => {
                 let projects_directory_file = ProjectsDirectoryFile::new_filtered(
                     &proj_args.projects_directory_file,
-                    &proj_args.tags,
+                    &filter_args.tags,
                 )?;
                 let projects = projects_directory_file.get_projects_from_remotes()?;
                 match output {
@@ -292,5 +369,35 @@ impl ProjectSubcommand {
                 Ok(())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use anyhow::Result;
+
+    use rstest::rstest;
+
+    use crate::config::config_file::{AxlConfig, AxlContext, GeneralConfig};
+
+    use super::ProjectSubcommand;
+
+    #[rstest]
+    fn should_read_projects_file_into_struct() -> Result<()> {
+        ProjectSubcommand::handle_cmd(
+            ProjectSubcommand::Import {
+                proj_args: super::ProjectArgs {
+                    projects_directory_file: "".into(),
+                },
+                directory: "".into(),
+            },
+            AxlContext {
+                config_path: "".into(),
+                config: AxlConfig {
+                    general: GeneralConfig { show_art: false },
+                },
+            },
+        )
     }
 }

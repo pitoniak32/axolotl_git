@@ -1,8 +1,12 @@
 use anyhow::Result;
 use colored::Colorize;
+use console::Style;
 use git_lib::git::Git;
+use inquire::Confirm;
+use similar::{ChangeTag, TextDiff};
+use spinners::{Spinner, Spinners};
 use std::{
-    fs,
+    fs::{self},
     path::{Path, PathBuf},
 };
 use tracing::{debug, instrument, warn};
@@ -15,22 +19,34 @@ use super::project_type::Project;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProjectsDirectoryFile {
-    pub path: PathBuf,
+    #[serde(skip)]
+    pub file_path: PathBuf,
+    pub projects_directory: PathBuf,
     pub projects: Vec<ProjectConfigType>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct ProjectConfigType {
-    name: Option<String>,
-    remote: String,
-    tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    pub remote: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
 }
 
 impl ProjectsDirectoryFile {
-    #[instrument(err)]
     pub fn new(path: &Path) -> Result<Self> {
-        let projects_directory_file: Self = serde_yaml::from_str(&fs::read_to_string(path)?)?;
+        debug!("reading projects directory file...");
+        let mut projects_directory_file: Self = serde_yaml::from_str(&fs::read_to_string(path)?)?;
+        projects_directory_file.file_path = path.to_path_buf();
+        debug!("finished reading projects directory file");
         Ok(projects_directory_file)
+    }
+
+    #[instrument(err)]
+    pub fn save_file(&self) -> Result<()> {
+        fs::write(&self.file_path, serde_yaml::to_string::<Self>(self)?)?;
+        Ok(())
     }
 
     #[instrument(err)]
@@ -68,7 +84,7 @@ impl ProjectsDirectoryFile {
             .iter()
             .map(|project_config_type| {
                 Ok(Project::new(
-                    &self.path,
+                    &self.projects_directory,
                     project_config_type
                         .name
                         .clone()
@@ -157,6 +173,73 @@ impl ProjectsDirectoryFile {
         }
 
         Ok(projects)
+    }
+
+    #[instrument(err)]
+    pub fn pick_config_projects(
+        pickable_projects: Vec<ProjectConfigType>,
+    ) -> Result<Vec<ProjectConfigType>> {
+        let project_remotes = pickable_projects
+            .iter()
+            .map(|p| p.remote.clone())
+            .collect::<Vec<_>>();
+
+        let project_remotes_picked = FzfCmd::new()
+            .args(vec!["--phony", "--multi"])
+            .find_vec(project_remotes)?
+            .trim_end()
+            .split('\n')
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
+
+        debug!("picked_project_remotes: {project_remotes_picked:?}");
+
+        let projects = pickable_projects
+            .into_iter()
+            .filter(|p| project_remotes_picked.contains(&p.remote))
+            .collect::<Vec<_>>();
+
+        if projects.is_empty() {
+            eprintln!("{}", "No projects were selected.".red().bold());
+            Err(AxlError::NoProjectSelected)?
+        }
+
+        Ok(projects)
+    }
+
+    pub fn add_config_projects(&mut self, projects: Vec<ProjectConfigType>) -> Result<()> {
+        let before = serde_yaml::to_string(&self.projects)?;
+        self.projects.extend(projects);
+        let after = serde_yaml::to_string(&self.projects)?;
+        let diff = TextDiff::from_lines(&before, &after);
+        println!("project file diff:\n----");
+        for change in diff.iter_all_changes() {
+            let (sign, style) = match change.tag() {
+                ChangeTag::Delete => ("-", Style::new().red()),
+                ChangeTag::Insert => ("+", Style::new().green()),
+                ChangeTag::Equal => (" ", Style::new()),
+            };
+            print!("{}{}", style.apply_to(sign).bold(), style.apply_to(change));
+        }
+
+        let file_string = self.file_path.to_string_lossy();
+        let ans = Confirm::new("Do you accept these changes?")
+            .with_default(false)
+            .with_help_message(&format!("These changes will be saved to [{file_string}]"))
+            .prompt()?;
+
+        if ans {
+            let mut sp = Spinner::new(Spinners::Dots9, format!("Saving to {file_string}..."));
+            self.save_file()?;
+            sp.stop_and_persist(
+                &Style::new().green().apply_to("✓").bold().to_string(),
+                "Saved".into(),
+            );
+        } else {
+            println!("projects file will not be updated.")
+        }
+
+        Ok(())
     }
 }
 
@@ -272,7 +355,8 @@ projects:
         assert_eq!(
             projects_directory_file,
             ProjectsDirectoryFile {
-                path: "/test/projects/dir".into(),
+                file_path: test_file.path().to_path_buf(),
+                projects_directory: "/test/projects/dir".into(),
                 projects: vec![
                     ProjectConfigType {
                         remote: "git@github.com:user/test1.git".to_string(),

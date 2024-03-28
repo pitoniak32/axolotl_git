@@ -26,7 +26,7 @@ Add a projects directory file
 example:
 path: `~/.config/axl/personal_projects.yml`
 ```yml
-path: "/path/to/your/Projects"
+projects_directory: "/path/to/your/Projects"
 projects: 
   - remote: git@github.com:your_github/your_project.git
     tags: [test_tag]
