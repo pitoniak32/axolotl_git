@@ -1,0 +1,4 @@
+tags: ['clis']
+include:
+  - remote: 'git@github.com:pitoniak32/axolotl_git.git'
+  - example_group_libs.yml
