@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     fmt::Display,
     path::{Path, PathBuf},
 };
@@ -13,12 +14,12 @@ pub struct Project {
     pub name: String,
     pub safe_name: String,
     pub remote: String,
-    pub tags: Option<Vec<String>>,
+    pub tags: BTreeSet<String>,
 }
 
 impl Project {
     #[instrument]
-    pub fn new(path: &Path, name: String, remote: String, tags: Option<Vec<String>>) -> Self {
+    pub fn new(path: &Path, name: String, remote: String, tags: BTreeSet<String>) -> Self {
         Self {
             project_folder_path: path.to_path_buf(),
             path: path.join(name.clone()),
@@ -53,7 +54,7 @@ impl Display for Project {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{collections::BTreeSet, path::PathBuf};
 
     use anyhow::Result;
     use rstest::rstest;
@@ -68,7 +69,7 @@ mod tests {
             &PathBuf::from("/test/projects/dir/"),
             "test2".to_string(),
             "git@github.com:user/test2.git".to_string(),
-            None,
+            BTreeSet::new(),
         );
 
         // Assert
@@ -80,7 +81,7 @@ mod tests {
                 project_folder_path: "/test/projects/dir/".into(),
                 path: "/test/projects/dir/test2".into(),
                 remote: "git@github.com:user/test2.git".to_string(),
-                tags: None,
+                tags: BTreeSet::new(),
             }
         );
 
@@ -94,7 +95,7 @@ mod tests {
             &PathBuf::from("/test/projects/dir/"),
             "test2".to_string(),
             "git@github.com:user/test2.git".to_string(),
-            Some(vec!["tester".to_string(), "awesome_repo".to_string()]),
+            BTreeSet::from_iter(vec!["tester".to_string(), "awesome_repo".to_string()]),
         );
 
         // Assert
@@ -106,7 +107,7 @@ mod tests {
                 project_folder_path: "/test/projects/dir/".into(),
                 path: "/test/projects/dir/test2".into(),
                 remote: "git@github.com:user/test2.git".to_string(),
-                tags: Some(vec!["tester".to_string(), "awesome_repo".to_string()]),
+                tags: BTreeSet::from_iter(vec!["tester".to_string(), "awesome_repo".to_string()]),
             }
         );
 
@@ -120,7 +121,7 @@ mod tests {
             &PathBuf::from("/test/projects/dir/"),
             ".test2".to_string(),
             "git@github.com:user/.test2.git".to_string(),
-            Some(vec!["tester".to_string()]),
+            BTreeSet::from_iter(vec!["tester".to_string()]),
         );
 
         // Assert
@@ -132,7 +133,7 @@ mod tests {
                 project_folder_path: "/test/projects/dir/".into(),
                 path: "/test/projects/dir/.test2".into(),
                 remote: "git@github.com:user/.test2.git".to_string(),
-                tags: Some(vec!["tester".to_string()]),
+                tags: BTreeSet::from_iter(vec!["tester".to_string()]),
             }
         );
 

@@ -64,7 +64,7 @@ impl Cli {
 
     #[instrument]
     fn print_version_string(show_art: bool) {
-        println!(
+        eprintln!(
             "{} {}{}{} {} {} {}\n{}",
             "~=".custom_color(AxlColor::HotPink.into()),
             PROJ_NAME.custom_color(AxlColor::TiffanyBlue.into()),
@@ -133,7 +133,7 @@ impl Cli {
                 }
             }
             self.args.config_path = Some(path.clone());
-            self.context.config_path = path.clone();
+            self.context.config_path.clone_from(&path);
         }
         Ok(())
     }

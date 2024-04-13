@@ -1,7 +1,6 @@
-use std::{env, path::PathBuf};
+use std::env;
 
 use anyhow::Result;
-use axl_lib::project::group::ProjectGroupFile;
 use clap::Parser;
 use cli::Cli;
 use opentelemetry::KeyValue;
@@ -18,49 +17,48 @@ pub mod cli;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dbg!(ProjectGroupFile::new(&PathBuf::from("./example_group_clis.yml")).unwrap());
-    // let cli: Cli = Cli::parse();
-    //
-    // configure_tracing(cli.args.verbosity.log_level_filter().as_trace())?;
-    //
-    // // So the span and guard are dropped before shutting down tracer provider.
-    // {
-    //     // Create a uuid that can be provided to the user to more effectively search for the command trace.
-    //     let trace_uuid = Uuid::new_v4();
-    //     let root_span = info_span!(
-    //         "main",
-    //         run.uuid = trace_uuid.to_string(),
-    //         executable.path = env::current_exe()
-    //             .expect("binary execution should have a current executable")
-    //             .to_string_lossy()
-    //             .to_string(),
-    //         executable.version = env!("CARGO_PKG_VERSION"),
-    //     );
-    //     let _guard = root_span.enter();
-    //
-    //     // Somehow need to merge the cli arguments with the config file to allow for overriding values
-    //     // with flags for testing.
-    //     match cli.init() {
-    //         Ok(cli) => match cli.handle_command() {
-    //             Ok(_) => {}
-    //             Err(err) => {
-    //                 error!(
-    //                     run.uuid = trace_uuid.to_string(),
-    //                     "An error occurred while handling command: {err:?}"
-    //                 );
-    //             }
-    //         },
-    //         Err(err) => {
-    //             error!(
-    //                 run.uuid = trace_uuid.to_string(),
-    //                 "An error occurred during cli init: {:?}", err
-    //             );
-    //         }
-    //     }
-    // }
-    //
-    // // This is needed to export all remaining spans before exiting.
-    // opentelemetry::global::shutdown_tracer_provider();
+    let cli: Cli = Cli::parse();
+
+    configure_tracing(cli.args.verbosity.log_level_filter().as_trace())?;
+
+    // So the span and guard are dropped before shutting down tracer provider.
+    {
+        // Create a uuid that can be provided to the user to more effectively search for the command trace.
+        let trace_uuid = Uuid::new_v4();
+        let root_span = info_span!(
+            "main",
+            run.uuid = trace_uuid.to_string(),
+            executable.path = env::current_exe()
+                .expect("binary execution should have a current executable")
+                .to_string_lossy()
+                .to_string(),
+            executable.version = env!("CARGO_PKG_VERSION"),
+        );
+        let _guard = root_span.enter();
+
+        // Somehow need to merge the cli arguments with the config file to allow for overriding values
+        // with flags for testing.
+        match cli.init() {
+            Ok(cli) => match cli.handle_command() {
+                Ok(_) => {}
+                Err(err) => {
+                    error!(
+                        run.uuid = trace_uuid.to_string(),
+                        "An error occurred while handling command: {err:?}"
+                    );
+                }
+            },
+            Err(err) => {
+                error!(
+                    run.uuid = trace_uuid.to_string(),
+                    "An error occurred during cli init: {:?}", err
+                );
+            }
+        }
+    }
+
+    // This is needed to export all remaining spans before exiting.
+    opentelemetry::global::shutdown_tracer_provider();
 
     Ok(())
 }

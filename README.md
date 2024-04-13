@@ -27,7 +27,7 @@ example:
 path: `~/.config/axl/personal_projects.yml`
 ```yml
 projects_directory: "/path/to/your/Projects"
-projects: 
+include: 
   - remote: git@github.com:your_github/your_project.git
     tags: [test_tag]
   - remote: git@github.com:your_github/your_other_project.git

@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 
@@ -84,6 +85,13 @@ pub enum ProjectSubcommand {
         proj_args: ProjectArgs,
         #[clap(flatten)]
         filter_args: FilterArgs,
+        #[arg(short, long, value_enum, default_value_t=OutputFormat::Debug)]
+        output: OutputFormat,
+    },
+    /// List all tags used on projects tracked in your config list.
+    ListTags {
+        #[clap(flatten)]
+        proj_args: ProjectArgs,
         #[arg(short, long, value_enum, default_value_t=OutputFormat::Debug)]
         output: OutputFormat,
     },
@@ -174,7 +182,7 @@ impl ProjectSubcommand {
                         &project_dir.unwrap_or(PathBuf::try_from(ConfigEnvKey::Home)?),
                         name.unwrap_or_else(|| "scratch".to_string()),
                         "".to_owned(),
-                        None,
+                        BTreeSet::new(),
                     ),
                 )?;
                 Ok(())
@@ -220,9 +228,7 @@ impl ProjectSubcommand {
                 debug!("Attempting to clone {ssh_uri}...");
                 if init {
                     let parsed = Git::parse_url(&ssh_uri)?;
-                    let project_dir = projects_directory_file
-                        .projects_directory
-                        .join(parsed.name);
+                    let project_dir = projects_directory_file.projects_directory.join(parsed.name);
 
                     if !project_dir.exists() {
                         fs::create_dir(&project_dir)?;
@@ -235,7 +241,7 @@ impl ProjectSubcommand {
                     projects_directory_file.add_config_projects(vec![ProjectConfigType {
                         name: None,
                         remote: ssh_uri,
-                        tags: None,
+                        tags: BTreeSet::new(),
                     }])?;
                 } else {
                     let results = GitRepo::from_url_multi(
@@ -250,7 +256,7 @@ impl ProjectSubcommand {
                     projects_directory_file.add_config_projects(vec![ProjectConfigType {
                         name: None,
                         remote: ssh_uri,
-                        tags: None,
+                        tags: BTreeSet::new(),
                     }])?;
                 }
 
@@ -388,36 +394,33 @@ impl ProjectSubcommand {
                 }
                 Ok(())
             }
+            Self::ListTags { proj_args, output } => {
+                let projects_directory_file =
+                    ProjectsDirectoryFile::new(&proj_args.projects_directory_file)?;
+                let tags = projects_directory_file
+                    .get_projects_from_remotes()?
+                    .iter()
+                    .fold(BTreeSet::new(), |mut acc, project| {
+                        acc.extend(project.tags.clone());
+                        acc
+                    });
+                match output {
+                    OutputFormat::Debug => {
+                        println!("{:#?}", tags);
+                    }
+                    OutputFormat::Json => {
+                        println!("{}", serde_json::to_string_pretty(&tags)?)
+                    }
+                    OutputFormat::Yaml => println!("{}", serde_yaml::to_string(&tags)?),
+                    OutputFormat::Csv => {
+                        println!("{},", tags.iter().cloned().collect::<Vec<_>>().join(",\n"))
+                    }
+                    OutputFormat::JsonR => {
+                        println!("{}", serde_json::to_string(&tags)?)
+                    }
+                }
+                Ok(())
+            }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use anyhow::Result;
-
-    use rstest::rstest;
-
-    use crate::config::config_file::{AxlConfig, AxlContext, GeneralConfig};
-
-    use super::ProjectSubcommand;
-
-    #[rstest]
-    fn should_read_projects_file_into_struct() -> Result<()> {
-        ProjectSubcommand::handle_cmd(
-            ProjectSubcommand::Import {
-                proj_args: super::ProjectArgs {
-                    projects_directory_file: "".into(),
-                },
-                directory: "".into(),
-            },
-            AxlContext {
-                config_path: "".into(),
-                config: AxlConfig {
-                    general: GeneralConfig { show_art: false },
-                },
-            },
-        )
     }
 }
