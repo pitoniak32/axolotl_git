@@ -9,6 +9,7 @@ use tracing::{debug, error, info, instrument, warn};
 
 use crate::{
     config::config_env::ConfigEnvKey,
+    error::AxlError,
     helper::wrap_command,
     project::{project_type::ResolvedProject, subcommand::ProjectArgs},
 };
@@ -22,6 +23,13 @@ impl Tmux {
             "Attempting to open Tmux session with project: {:?}!",
             project,
         );
+
+        if !project.get_path().exists() {
+            return Err(AxlError::ProjectPathDoesNotExist(
+                project.get_path().to_string_lossy().to_string(),
+            )
+            .into());
+        }
 
         if !Self::in_session() {
             Self::create_new_attached_attach_if_exists(

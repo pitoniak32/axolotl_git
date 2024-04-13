@@ -10,4 +10,7 @@ pub enum AxlError {
 
     #[error("provided config path does not exist")]
     ConfigPathDoesNotExist,
+
+    #[error("project path {0} does not exist")]
+    ProjectPathDoesNotExist(String),
 }
