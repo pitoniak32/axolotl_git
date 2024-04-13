@@ -3,6 +3,9 @@ on:
   workflow_dispatch: {}
 env:
   CARGO_PUBLISH_CI: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   publish-crate:
     uses: pitoniak32/actions/.github/workflows/rust-publish-crate.yml@main

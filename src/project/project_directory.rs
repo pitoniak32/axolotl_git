@@ -10,7 +10,7 @@ use std::{
     fs::{self},
     path::{Path, PathBuf},
 };
-use tracing::{debug, instrument, warn};
+use tracing::{debug, instrument, trace, warn};
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -18,25 +18,34 @@ use crate::{
     error::AxlError, fzf::FzfCmd, helper::get_directories, project::group::ProjectGroupFile,
 };
 
-use super::{group::GroupItem, project_type::Project};
+use super::{
+    group::GroupItem,
+    project_type::{ConfigProject, ResolvedProject},
+};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ProjectsDirectoryFile {
+pub struct ConfigProjectDirectory {
     #[serde(skip)]
     pub file_path: PathBuf,
     pub projects_directory: PathBuf,
     pub include: Vec<GroupItem>,
-    #[serde(skip)]
-    pub projects: Vec<ProjectConfigType>,
 }
 
-impl ProjectsDirectoryFile {
+impl ConfigProjectDirectory {
+    #[instrument(err)]
     pub fn new(path: &Path) -> Result<Self> {
-        debug!("reading projects directory file...");
+        trace!("reading projects directory file...");
         let mut projects_directory_file: Self = serde_yaml::from_str(&fs::read_to_string(path)?)?;
         projects_directory_file.file_path = path.to_path_buf();
+        trace!("finished reading projects directory file");
+        Ok(projects_directory_file)
+    }
+
+    #[instrument(err)]
+    pub fn resolve_projects(&self) -> Result<Vec<ConfigProject>> {
+        trace!("loading group files, and projects...");
         let mut projects = vec![];
-        for item in projects_directory_file.include.clone() {
+        for item in self.include.clone() {
             match item {
                 GroupItem::GroupFile(path) => {
                     let group_file = ProjectGroupFile::new(&path)?;
@@ -45,9 +54,15 @@ impl ProjectsDirectoryFile {
                 GroupItem::Project(p) => projects.push(p),
             };
         }
-        projects_directory_file.projects = projects;
-        debug!("finished reading projects directory file");
-        Ok(projects_directory_file)
+        trace!("finished loading group files, and projects");
+        Ok(projects)
+    }
+
+    pub fn add_config_projects(&mut self, projects: Vec<ConfigProject>) -> Result<()> {
+        for project in projects {
+            self.include.push(GroupItem::Project(project));
+        }
+        Ok(())
     }
 
     #[instrument(err)]
@@ -55,38 +70,58 @@ impl ProjectsDirectoryFile {
         fs::write(&self.file_path, serde_yaml::to_string::<Self>(self)?)?;
         Ok(())
     }
+}
 
-    #[instrument(err)]
-    pub fn new_filtered(path: &Path, tags: &Option<Vec<String>>) -> Result<Self> {
-        let mut projects_directory_file: Self = Self::new(path)?;
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ResolvedProjectDirectory {
+    pub resolved_from_path: PathBuf,
+    pub projects_directory: PathBuf,
+    pub projects: Vec<ConfigProject>,
+}
 
-        if let Some(given_tags) = tags {
-            let filtered = projects_directory_file
-                .projects
-                .clone()
-                .into_iter()
-                .filter(|project| project.tags.iter().any(|tag| given_tags.contains(tag)))
-                .collect::<Vec<_>>();
-
-            if filtered.len() < projects_directory_file.projects.len() {
-                projects_directory_file.projects = filtered;
-            }
-        }
-
-        Ok(projects_directory_file)
+impl ResolvedProjectDirectory {
+    pub fn new(project_directory_file: &ConfigProjectDirectory) -> Result<Self> {
+        Ok(Self {
+            resolved_from_path: project_directory_file.file_path.clone(),
+            projects_directory: project_directory_file.projects_directory.clone(),
+            projects: project_directory_file.resolve_projects()?,
+        })
     }
 
     #[instrument(err)]
-    pub fn get_project(&self) -> Result<Project> {
+    pub fn new_filtered(
+        project_directory_file: &ConfigProjectDirectory,
+        tags: &Vec<String>,
+    ) -> Result<Self> {
+        let mut project_directory: Self = Self::new(project_directory_file)?;
+
+        if !tags.is_empty() {
+            let filtered = project_directory
+                .projects
+                .clone()
+                .into_iter()
+                .filter(|project| project.tags.iter().any(|tag| tags.contains(tag)))
+                .collect::<Vec<_>>();
+
+            if filtered.len() < project_directory.projects.len() {
+                project_directory.projects = filtered;
+            }
+        }
+
+        Ok(project_directory)
+    }
+
+    #[instrument(err)]
+    pub fn get_project(&self) -> Result<ResolvedProject> {
         Self::pick_project(self.get_projects_from_remotes()?)
     }
 
     #[instrument(err)]
-    pub fn get_projects_from_remotes(&self) -> Result<Vec<Project>> {
+    pub fn get_projects_from_remotes(&self) -> Result<Vec<ResolvedProject>> {
         self.projects
             .iter()
             .map(|project_config_type| {
-                Ok(Project::new(
+                Ok(ResolvedProject::new(
                     &self.projects_directory,
                     project_config_type
                         .name
@@ -96,11 +131,11 @@ impl ProjectsDirectoryFile {
                     project_config_type.tags.clone(),
                 ))
             })
-            .collect::<Result<Vec<Project>>>()
+            .collect::<Result<Vec<ResolvedProject>>>()
     }
 
     #[instrument(err)]
-    pub fn get_projects_from_fs(path: &Path) -> Result<(Vec<Project>, Vec<PathBuf>)> {
+    pub fn get_projects_from_fs(path: &Path) -> Result<(Vec<ResolvedProject>, Vec<PathBuf>)> {
         let mut ignored = vec![];
         let projects: Vec<_> = get_directories(path)?
             .into_iter()
@@ -114,7 +149,7 @@ impl ProjectsDirectoryFile {
                             None
                         },
                         |remote| {
-                            Some(Project::new(
+                            Some(ResolvedProject::new(
                                 path,
                                 d.file_name()
                                     .expect("file_name should be representable as a String")
@@ -131,7 +166,7 @@ impl ProjectsDirectoryFile {
     }
 
     #[instrument(err)]
-    pub fn pick_project(projects: Vec<Project>) -> Result<Project> {
+    pub fn pick_project(projects: Vec<ResolvedProject>) -> Result<ResolvedProject> {
         let project_names = projects.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
 
         let project_name = FzfCmd::new().find_vec(project_names)?;
@@ -149,7 +184,7 @@ impl ProjectsDirectoryFile {
     }
 
     #[instrument(err)]
-    pub fn pick_projects(pickable_projects: Vec<Project>) -> Result<Vec<Project>> {
+    pub fn pick_projects(pickable_projects: Vec<ResolvedProject>) -> Result<Vec<ResolvedProject>> {
         let project_names = pickable_projects
             .iter()
             .map(|p| p.name.clone())
@@ -180,8 +215,8 @@ impl ProjectsDirectoryFile {
 
     #[instrument(err)]
     pub fn pick_config_projects(
-        pickable_projects: Vec<ProjectConfigType>,
-    ) -> Result<Vec<ProjectConfigType>> {
+        pickable_projects: Vec<ConfigProject>,
+    ) -> Result<Vec<ConfigProject>> {
         let project_remotes = pickable_projects
             .iter()
             .map(|p| p.remote.clone())
@@ -210,10 +245,11 @@ impl ProjectsDirectoryFile {
         Ok(projects)
     }
 
-    pub fn add_config_projects(&mut self, projects: Vec<ProjectConfigType>) -> Result<()> {
-        let before = serde_yaml::to_string(&self.projects)?;
-        self.projects.extend(projects);
-        let after = serde_yaml::to_string(&self.projects)?;
+    pub fn add_config_projects(&mut self, projects: Vec<ConfigProject>) -> Result<()> {
+        let mut config_project_directory = ConfigProjectDirectory::new(&self.resolved_from_path)?;
+        let before = serde_yaml::to_string(&config_project_directory.resolve_projects()?)?;
+        config_project_directory.add_config_projects(projects)?;
+        let after = serde_yaml::to_string(&config_project_directory.resolve_projects()?)?;
         let diff = TextDiff::from_lines(&before, &after);
         println!("project file diff:\n----");
         for change in diff.iter_all_changes() {
@@ -225,7 +261,7 @@ impl ProjectsDirectoryFile {
             print!("{}{}", style.apply_to(sign).bold(), style.apply_to(change));
         }
 
-        let file_string = self.file_path.to_string_lossy();
+        let file_string = self.resolved_from_path.to_string_lossy();
         let ans = Confirm::new("Do you accept these changes?")
             .with_default(false)
             .with_help_message(&format!("These changes will be saved to [{file_string}]"))
@@ -233,7 +269,7 @@ impl ProjectsDirectoryFile {
 
         if ans {
             let mut sp = Spinner::new(Spinners::Dots9, format!("Saving to {file_string}..."));
-            self.save_file()?;
+            config_project_directory.save_file()?;
             sp.stop_and_persist(
                 &Style::new().green().apply_to("✓").bold().to_string(),
                 "Saved".into(),
@@ -246,42 +282,24 @@ impl ProjectsDirectoryFile {
     }
 }
 
-pub struct ProjectDirectoryManager {
-    pub projects_file: ProjectsDirectoryFile,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
-pub struct ProjectConfigType {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    pub remote: String,
-    #[serde(default = "tags_default")]
-    pub tags: BTreeSet<String>,
-}
-
-const fn tags_default() -> BTreeSet<String> {
-    BTreeSet::new()
-}
-
 #[cfg(test)]
 mod tests {
 
-    use std::collections::BTreeSet;
-    use std::fs;
+    use std::{collections::BTreeSet, fs};
 
     use anyhow::Result;
 
-    use assert_fs::*;
-    use assert_fs::{fixture::ChildPath, prelude::*};
+    use assert_fs::{fixture::ChildPath, prelude::*, *};
     use git_lib::git::Git;
     use rstest::{fixture, rstest};
     use similar_asserts::assert_eq;
 
     use crate::project::{
-        group::GroupItem, project_directory_manager::ProjectConfigType, project_type::Project,
+        project_directory::ConfigProjectDirectory,
+        project_type::{ConfigProject, ResolvedProject},
     };
 
-    use super::ProjectsDirectoryFile;
+    use super::ResolvedProjectDirectory;
 
     #[fixture]
     fn projects_directory_file_1() -> (TempDir, ChildPath, ChildPath) {
@@ -318,9 +336,9 @@ include:
     }
 
     #[fixture]
-    fn projects_vec_len_2() -> Vec<Project> {
+    fn projects_vec_len_2() -> Vec<ResolvedProject> {
         vec![
-            Project {
+            ResolvedProject {
                 name: "test1".to_string(),
                 safe_name: "test1".to_string(),
                 project_folder_path: "/test/projects/dir/".into(),
@@ -328,7 +346,7 @@ include:
                 remote: "git@github.com:user/test1.git".to_string(),
                 tags: BTreeSet::from_iter(vec!["test1".to_string()]),
             },
-            Project {
+            ResolvedProject {
                 name: "test2".to_string(),
                 safe_name: "test2".to_string(),
                 project_folder_path: "/test/projects/dir/".into(),
@@ -381,41 +399,37 @@ include:
 
     #[rstest]
     fn should_read_projects_file_into_struct(
-        #[from(projects_directory_file_1)] test_file: (TempDir, ChildPath, ChildPath),
+        #[from(projects_directory_file_1)] test_dir: (TempDir, ChildPath, ChildPath),
     ) -> Result<()> {
         // Arrange
-        let project_1 = ProjectConfigType {
+        let project_1 = ConfigProject {
             remote: "git@github.com:user/test1.git".to_string(),
             name: None,
             tags: BTreeSet::from_iter(vec!["tester_repo".to_string(), "prod".to_string()]),
         };
-        let project_2 = ProjectConfigType {
+        let project_2 = ConfigProject {
             remote: "git@github.com:user/test2.git".to_string(),
             name: Some("test2_rename".to_string()),
             tags: BTreeSet::from_iter(vec!["grouped".to_string()]),
         };
-        let project_3 = ProjectConfigType {
+        let project_3 = ConfigProject {
             remote: "git@github.com:user/test3.git".to_string(),
             name: None,
             tags: BTreeSet::from_iter(vec!["grouped".to_string(), "test3".to_string()]),
         };
 
         // Act
-        dbg!(test_file.1.path());
-        dbg!(fs::read_to_string(test_file.1.path())?);
-        let projects_directory_file = ProjectsDirectoryFile::new(test_file.1.path())?;
+        dbg!(test_dir.1.path());
+        dbg!(fs::read_to_string(test_dir.1.path())?);
+        let project_directory =
+            ResolvedProjectDirectory::new(&ConfigProjectDirectory::new(test_dir.1.path())?)?;
 
         // Assert
         assert_eq!(
-            projects_directory_file,
-            ProjectsDirectoryFile {
-                file_path: test_file.1.path().to_path_buf(),
+            project_directory,
+            ResolvedProjectDirectory {
+                resolved_from_path: test_dir.1.path().to_path_buf(),
                 projects_directory: "/test/projects/dir".into(),
-                include: vec![
-                    GroupItem::GroupFile(test_file.2.path().into()),
-                    GroupItem::Project(project_1.clone()),
-                    GroupItem::Project(project_2.clone()),
-                ],
                 projects: vec![project_3, project_1, project_2]
             }
         );
@@ -428,16 +442,17 @@ include:
         #[from(projects_directory_file_1)] test_dir: (TempDir, ChildPath, ChildPath),
     ) -> Result<()> {
         // Arrange
-        let projects_directory_file = ProjectsDirectoryFile::new(test_dir.1.path())?;
+        let project_directory =
+            ResolvedProjectDirectory::new(&ConfigProjectDirectory::new(test_dir.1.path())?)?;
 
         // Act
-        let projects = projects_directory_file.get_projects_from_remotes()?;
+        let projects = project_directory.get_projects_from_remotes()?;
 
         // Assert
         assert_eq!(
             projects,
             vec![
-                Project {
+                ResolvedProject {
                     name: "test3".to_string(),
                     safe_name: "test3".to_string(),
                     project_folder_path: "/test/projects/dir".into(),
@@ -445,7 +460,7 @@ include:
                     remote: "git@github.com:user/test3.git".to_string(),
                     tags: BTreeSet::from_iter(vec!["grouped".to_string(), "test3".to_string()]),
                 },
-                Project {
+                ResolvedProject {
                     name: "test1".to_string(),
                     safe_name: "test1".to_string(),
                     project_folder_path: "/test/projects/dir".into(),
@@ -453,7 +468,7 @@ include:
                     remote: "git@github.com:user/test1.git".to_string(),
                     tags: BTreeSet::from_iter(vec!["tester_repo".to_string(), "prod".to_string()]),
                 },
-                Project {
+                ResolvedProject {
                     name: "test2_rename".to_string(),
                     safe_name: "test2_rename".to_string(),
                     project_folder_path: "/test/projects/dir".into(),
@@ -472,18 +487,18 @@ include:
         #[from(projects_directory_file_1)] test_dir: (TempDir, ChildPath, ChildPath),
     ) -> Result<()> {
         // Arrange
-        let projects_directory_file = ProjectsDirectoryFile::new_filtered(
-            test_dir.1.path(),
-            &Some(vec!["prod".to_string()]),
+        let project_directory = ResolvedProjectDirectory::new_filtered(
+            &ConfigProjectDirectory::new(test_dir.1.path())?,
+            &vec!["prod".to_string()],
         )?;
 
         // Act
-        let projects = projects_directory_file.get_projects_from_remotes()?;
+        let projects = project_directory.get_projects_from_remotes()?;
 
         // Assert
         assert_eq!(
             projects,
-            vec![Project {
+            vec![ResolvedProject {
                 name: "test1".to_string(),
                 safe_name: "test1".to_string(),
                 project_folder_path: "/test/projects/dir".into(),
@@ -502,10 +517,10 @@ include:
     ) -> Result<()> {
         // Act
         let projects_dir_path = test_dir.path().join("projects");
-        let projects = ProjectsDirectoryFile::get_projects_from_fs(&projects_dir_path)?;
+        let projects = ResolvedProjectDirectory::get_projects_from_fs(&projects_dir_path)?;
 
         assert_eq!(projects.0.len(), 2);
-        assert!(projects.0.contains(&Project {
+        assert!(projects.0.contains(&ResolvedProject {
             name: "test_repo1".to_string(),
             safe_name: "test_repo1".to_string(),
             project_folder_path: projects_dir_path.clone(),
@@ -513,7 +528,7 @@ include:
             remote: "git@github.com:test_user/test_repo1.git".to_string(),
             tags: BTreeSet::new(),
         },),);
-        assert!(projects.0.contains(&Project {
+        assert!(projects.0.contains(&ResolvedProject {
             name: "test_repo2".to_string(),
             safe_name: "test_repo2".to_string(),
             project_folder_path: projects_dir_path.clone(),

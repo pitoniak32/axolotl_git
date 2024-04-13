@@ -22,11 +22,11 @@ use strum_macros::Display;
 use tracing::{debug, info, instrument};
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
-const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
 const OS_PLATFORM: &str = std::env::consts::OS;
+const VERSION_STR: &str = concat!(env!("CARGO_PKG_VERSION"), "-", env!("GIT_HASH"));
 
 #[derive(Parser, Debug)]
-#[command(author, version = concat!(env!("CARGO_PKG_VERSION"), "-", env!("GIT_HASH")), about)]
+#[command(author, version = VERSION_STR, about)]
 #[command(propagate_version = true)]
 #[command(arg_required_else_help = true)]
 pub struct Cli {
@@ -69,7 +69,7 @@ impl Cli {
             "~=".custom_color(AxlColor::HotPink.into()),
             PROJ_NAME.custom_color(AxlColor::TiffanyBlue.into()),
             "@".custom_color(AxlColor::HotPink.into()),
-            PROJ_VERSION.custom_color(AxlColor::TiffanyBlue.into()),
+            VERSION_STR.custom_color(AxlColor::TiffanyBlue.into()),
             "on".custom_color(AxlColor::HotPink.into()),
             OS_PLATFORM.custom_color(AxlColor::Mint.into()),
             "=~".custom_color(AxlColor::HotPink.into()),

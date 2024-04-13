@@ -8,7 +8,7 @@ use tracing::debug;
 
 use serde::{Deserialize, Serialize};
 
-use super::project_directory_manager::ProjectConfigType;
+use super::project_type::ConfigProject;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct ProjectGroupFile {
@@ -27,7 +27,7 @@ const fn tags_default() -> BTreeSet<String> {
 #[serde(untagged)]
 pub enum GroupItem {
     GroupFile(PathBuf),
-    Project(ProjectConfigType),
+    Project(ConfigProject),
 }
 
 impl ProjectGroupFile {
@@ -39,11 +39,11 @@ impl ProjectGroupFile {
         Ok(project_group_file)
     }
 
-    pub fn get_projects(&self) -> Result<Vec<ProjectConfigType>> {
+    pub fn get_projects(&self) -> Result<Vec<ConfigProject>> {
         self.recurse_group_files(BTreeSet::new())
     }
 
-    fn recurse_group_files(&self, tags: BTreeSet<String>) -> Result<Vec<ProjectConfigType>> {
+    fn recurse_group_files(&self, tags: BTreeSet<String>) -> Result<Vec<ConfigProject>> {
         let mut projects: Vec<_> = vec![];
         let mut group_tags = tags;
         group_tags.extend(self.tags.clone());

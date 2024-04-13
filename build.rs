@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, process::Command};
+use std::{env::var, fs, path::PathBuf, process::Command};
 
 use serde::Deserialize;
 
@@ -15,7 +15,7 @@ struct GitVcsInfo {
 const GIT_SHA_LEN: usize = 7;
 
 fn main() {
-    let git_hash = if std::env::var("CARGO_PUBLISH_CI").ok().is_some() {
+    let git_hash = if var("CARGO_PUBLISH_CI").is_ok_and(|x| x == "true") {
         let vcs_info: CargoVcsInfo = serde_json::from_str(
             &fs::read_to_string(
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".cargo_vcs_info.json"),
