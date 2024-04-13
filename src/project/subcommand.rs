@@ -1,8 +1,8 @@
-use std::{collections::BTreeSet, fs, path::PathBuf};
+use std::{collections::BTreeSet, path::PathBuf};
 
 use clap::{arg, Args, Subcommand, ValueEnum};
 use colored::Colorize;
-use git_lib::{git::Git, repo::GitRepo};
+use git_lib::repo::GitRepo;
 use tracing::{debug, error, instrument, trace};
 
 use crate::{
@@ -110,9 +110,6 @@ pub enum ProjectSubcommand {
     New {
         #[clap(flatten)]
         proj_args: ProjectArgs,
-        /// If the repo should be initialized in the project directory
-        #[arg(long)]
-        init: bool,
         /// remote uri of repository you would like to add
         ssh_uri: String,
     }, // Like ThePrimagen Harpoon in nvim but for multiplexer sessions
@@ -190,11 +187,7 @@ impl ProjectSubcommand {
                 Ok(())
             }
             Self::Home { sess_args } => sess_args.multiplexer.unique_session(),
-            Self::New {
-                proj_args,
-                init,
-                ssh_uri,
-            } => {
+            Self::New { proj_args, ssh_uri } => {
                 debug!(
                     "using [{:?}] projects file.",
                     proj_args.projects_directory_file
@@ -211,45 +204,24 @@ impl ProjectSubcommand {
                 {
                     eprintln!(
                         "{}",
-                        "Project with this remote already exists in your projects_directory_file"
-                            .red()
-                            .bold()
+                        "Project with this remote is already tracked.".red().bold()
                     );
                     return Ok(());
                 }
                 debug!("Attempting to clone {ssh_uri}...");
-                if init {
-                    let parsed = Git::parse_url(&ssh_uri)?;
-                    let project_dir = project_directory.projects_directory.join(parsed.name);
-
-                    if !project_dir.exists() {
-                        fs::create_dir(&project_dir)?;
+                let results =
+                    GitRepo::from_url_multi(&[&ssh_uri], &project_directory.projects_directory);
+                for result in results {
+                    if let Err(err) = result {
+                        error!("Failed cloning with: {err:?}");
                     }
-
-                    if !Git::is_inside_worktree(&project_dir) {
-                        Git::init(&project_dir)?;
-                        Git::add_remote("origin", &ssh_uri, &project_dir)?;
-                    }
-                    project_directory.add_config_projects(vec![ConfigProject {
-                        name: None,
-                        remote: ssh_uri,
-                        tags: BTreeSet::new(),
-                    }])?;
-                } else {
-                    let results =
-                        GitRepo::from_url_multi(&[&ssh_uri], &project_directory.projects_directory);
-                    for result in results {
-                        if let Err(err) = result {
-                            error!("Failed cloning with: {err:?}");
-                        }
-                    }
-                    project_directory.add_config_projects(vec![ConfigProject {
-                        name: None,
-                        remote: ssh_uri,
-                        tags: BTreeSet::new(),
-                    }])?;
                 }
-
+                project_directory.add_config_projects(vec![ConfigProject {
+                    name: None,
+                    remote: ssh_uri,
+                    tags: BTreeSet::new(),
+                }])?;
+                println!("project was added to your root project_directory config.\nYou can now move it to a different group manually.");
                 Ok(())
             }
             Self::Report {

@@ -1,7 +1,4 @@
-use std::{
-    env,
-    process::{exit},
-};
+use std::{env, process::exit};
 
 use anyhow::Result;
 use clap::Parser;

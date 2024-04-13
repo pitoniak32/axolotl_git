@@ -13,7 +13,7 @@ pub struct ConfigProject {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
     pub remote: String,
-    #[serde(default = "tags_default")]
+    #[serde(default = "tags_default", skip_serializing_if = "BTreeSet::is_empty")]
     pub tags: BTreeSet<String>,
 }
 

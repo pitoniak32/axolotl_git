@@ -1,6 +1,10 @@
 use anyhow::Result;
 use colored::Colorize;
+use console::Style;
 use git_lib::git::Git;
+use inquire::Confirm;
+use similar::{ChangeTag, TextDiff};
+use spinners::{Spinner, Spinners};
 use std::{
     collections::BTreeSet,
     fs::{self},
@@ -28,12 +32,37 @@ pub struct ConfigProjectDirectory {
 }
 
 impl ConfigProjectDirectory {
+    #[instrument(err)]
     pub fn new(path: &Path) -> Result<Self> {
         trace!("reading projects directory file...");
         let mut projects_directory_file: Self = serde_yaml::from_str(&fs::read_to_string(path)?)?;
         projects_directory_file.file_path = path.to_path_buf();
         trace!("finished reading projects directory file");
         Ok(projects_directory_file)
+    }
+
+    #[instrument(err)]
+    pub fn resolve_projects(&self) -> Result<Vec<ConfigProject>> {
+        trace!("loading group files, and projects...");
+        let mut projects = vec![];
+        for item in self.include.clone() {
+            match item {
+                GroupItem::GroupFile(path) => {
+                    let group_file = ProjectGroupFile::new(&path)?;
+                    projects.extend(group_file.get_projects()?);
+                }
+                GroupItem::Project(p) => projects.push(p),
+            };
+        }
+        trace!("finished loading group files, and projects");
+        Ok(projects)
+    }
+
+    pub fn add_config_projects(&mut self, projects: Vec<ConfigProject>) -> Result<()> {
+        for project in projects {
+            self.include.push(GroupItem::Project(project));
+        }
+        Ok(())
     }
 
     #[instrument(err)]
@@ -52,22 +81,10 @@ pub struct ResolvedProjectDirectory {
 
 impl ResolvedProjectDirectory {
     pub fn new(project_directory_file: &ConfigProjectDirectory) -> Result<Self> {
-        let mut projects = vec![];
-        trace!("loading group files, and projects...");
-        for item in project_directory_file.include.clone() {
-            match item {
-                GroupItem::GroupFile(path) => {
-                    let group_file = ProjectGroupFile::new(&path)?;
-                    projects.extend(group_file.get_projects()?);
-                }
-                GroupItem::Project(p) => projects.push(p),
-            };
-        }
-        trace!("finished loading group files, and projects");
         Ok(Self {
             resolved_from_path: project_directory_file.file_path.clone(),
             projects_directory: project_directory_file.projects_directory.clone(),
-            projects,
+            projects: project_directory_file.resolve_projects()?,
         })
     }
 
@@ -228,40 +245,40 @@ impl ResolvedProjectDirectory {
         Ok(projects)
     }
 
-    pub fn add_config_projects(&mut self, _projects: Vec<ConfigProject>) -> Result<()> {
-        unimplemented!("no longer working after allowing group files");
-        // let before = serde_yaml::to_string(&self.projects)?;
-        // self.projects.extend(projects);
-        // let after = serde_yaml::to_string(&self.projects)?;
-        // let diff = TextDiff::from_lines(&before, &after);
-        // println!("project file diff:\n----");
-        // for change in diff.iter_all_changes() {
-        //     let (sign, style) = match change.tag() {
-        //         ChangeTag::Delete => ("-", Style::new().red()),
-        //         ChangeTag::Insert => ("+", Style::new().green()),
-        //         ChangeTag::Equal => (" ", Style::new()),
-        //     };
-        //     print!("{}{}", style.apply_to(sign).bold(), style.apply_to(change));
-        // }
-        //
-        // let file_string = self.file_path.to_string_lossy();
-        // let ans = Confirm::new("Do you accept these changes?")
-        //     .with_default(false)
-        //     .with_help_message(&format!("These changes will be saved to [{file_string}]"))
-        //     .prompt()?;
-        //
-        // if ans {
-        //     let mut sp = Spinner::new(Spinners::Dots9, format!("Saving to {file_string}..."));
-        //     self.save_file()?;
-        //     sp.stop_and_persist(
-        //         &Style::new().green().apply_to("✓").bold().to_string(),
-        //         "Saved".into(),
-        //     );
-        // } else {
-        //     println!("projects file will not be updated.")
-        // }
-        //
-        // Ok(())
+    pub fn add_config_projects(&mut self, projects: Vec<ConfigProject>) -> Result<()> {
+        let mut config_project_directory = ConfigProjectDirectory::new(&self.resolved_from_path)?;
+        let before = serde_yaml::to_string(&config_project_directory.resolve_projects()?)?;
+        config_project_directory.add_config_projects(projects)?;
+        let after = serde_yaml::to_string(&config_project_directory.resolve_projects()?)?;
+        let diff = TextDiff::from_lines(&before, &after);
+        println!("project file diff:\n----");
+        for change in diff.iter_all_changes() {
+            let (sign, style) = match change.tag() {
+                ChangeTag::Delete => ("-", Style::new().red()),
+                ChangeTag::Insert => ("+", Style::new().green()),
+                ChangeTag::Equal => (" ", Style::new()),
+            };
+            print!("{}{}", style.apply_to(sign).bold(), style.apply_to(change));
+        }
+
+        let file_string = self.resolved_from_path.to_string_lossy();
+        let ans = Confirm::new("Do you accept these changes?")
+            .with_default(false)
+            .with_help_message(&format!("These changes will be saved to [{file_string}]"))
+            .prompt()?;
+
+        if ans {
+            let mut sp = Spinner::new(Spinners::Dots9, format!("Saving to {file_string}..."));
+            config_project_directory.save_file()?;
+            sp.stop_and_persist(
+                &Style::new().green().apply_to("✓").bold().to_string(),
+                "Saved".into(),
+            );
+        } else {
+            println!("projects file will not be updated.")
+        }
+
+        Ok(())
     }
 }
 
