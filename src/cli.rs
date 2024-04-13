@@ -15,6 +15,7 @@ use axl_lib::{
 };
 use bat::PrettyPrinter;
 use clap::{Args, Parser, Subcommand};
+use clap_verbosity_flag::LogLevel;
 use colored::Colorize;
 use rand::Rng;
 use strum_macros::Display;
@@ -25,7 +26,7 @@ const PROJ_VERSION: &str = env!("CARGO_PKG_VERSION");
 const OS_PLATFORM: &str = std::env::consts::OS;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about)]
+#[command(author, version = concat!(env!("CARGO_PKG_VERSION"), "-", env!("GIT_HASH")), about)]
 #[command(propagate_version = true)]
 #[command(arg_required_else_help = true)]
 pub struct Cli {
@@ -44,9 +45,11 @@ impl Cli {
     pub fn init(mut self) -> Result<Self> {
         info!("cli_before_config_init: {self:#?}");
         let _ = &self.set_config_path()?;
+        let show_art_arg = &self.context.config.general.show_art;
         let axl_config: AxlConfig = AxlConfig::from_file(&self.context.config_path)?;
-        if axl_config.general.show_art {
-            Self::print_version_string(axl_config.general.show_art);
+        let show_art = *show_art_arg && axl_config.general.show_art;
+        Self::print_version_string(show_art);
+        if show_art {
             Self::print_yaml_string(
                 serde_yaml::to_string(&axl_config)
                     .expect("Should be able to convert struct to yaml string"),
@@ -61,8 +64,8 @@ impl Cli {
 
     #[instrument]
     fn print_version_string(show_art: bool) {
-        println!(
-            "{} {}{}{} {} {} {}\n{}\n",
+        eprintln!(
+            "{} {}{}{} {} {} {}\n{}",
             "~=".custom_color(AxlColor::HotPink.into()),
             PROJ_NAME.custom_color(AxlColor::TiffanyBlue.into()),
             "@".custom_color(AxlColor::HotPink.into()),
@@ -130,7 +133,7 @@ impl Cli {
                 }
             }
             self.args.config_path = Some(path.clone());
-            self.context.config_path = path.clone();
+            self.context.config_path.clone_from(&path);
         }
         Ok(())
     }
@@ -167,9 +170,18 @@ impl Commands {
 #[derive(Args, Debug)]
 pub struct SharedArgs {
     #[clap(flatten)]
-    pub verbosity: clap_verbosity_flag::Verbosity,
+    pub verbosity: clap_verbosity_flag::Verbosity<OffLevel>,
 
     /// Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.axlrc.yml' defaults.
     #[arg(short, long)]
     config_path: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+pub struct OffLevel;
+
+impl LogLevel for OffLevel {
+    fn default() -> Option<tracing_log::log::Level> {
+        None
+    }
 }

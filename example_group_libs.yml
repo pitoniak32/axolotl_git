@@ -1,0 +1,3 @@
+tags: ['libs']
+include:
+  - remote: 'git@github.com:pitoniak32/git_repo.git'

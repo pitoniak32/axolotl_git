@@ -42,11 +42,17 @@ async fn main() -> Result<()> {
             Ok(cli) => match cli.handle_command() {
                 Ok(_) => {}
                 Err(err) => {
-                    error!("An error occurred while handling command: {:?}", err);
+                    error!(
+                        run.uuid = trace_uuid.to_string(),
+                        "An error occurred while handling command: {err:?}"
+                    );
                 }
             },
             Err(err) => {
-                error!("An error occurred during cli init: {:?}", err);
+                error!(
+                    run.uuid = trace_uuid.to_string(),
+                    "An error occurred during cli init: {:?}", err
+                );
             }
         }
     }
@@ -62,9 +68,7 @@ fn configure_tracing(log_filter: LevelFilter) -> Result<()> {
     tracing_subscriber::registry()
         .with(
             // set layer for log subscriber
-            tracing_subscriber::fmt::layer()
-                .pretty()
-                .with_filter(log_filter),
+            tracing_subscriber::fmt::layer().with_filter(log_filter),
         )
         .with(std::env::var("OTEL_COLLECTOR_URL").map_or_else(
             |_| None,

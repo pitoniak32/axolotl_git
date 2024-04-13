@@ -21,23 +21,8 @@ version = "0.1.1"
 # path = "../git_repo/git_lib"
 
 [dependencies]
-anyhow = "1.0.71"
-thiserror = "1.0.56"
-clap = { version = "4.3.10", features = ["derive", "env", "color"] }
-clap-verbosity-flag = "2.0.1"
-toml = "0.8.8"
-rand = "0.8.5"
-bat = "0.23.0"
-colored = "2.0.4"
-serde = { version = "1.0.164", features = ["derive"] }
-serde_derive = "1.0.164"
-serde_json = "1.0.99"
-serde_yaml = "0.9.22"
-strum_macros = "0.26.1"
-strum = { version = "0.26.1", features = ["derive"] }
-uuid = { version = "1.7.0", features = ["v4", "fast-rng"] }
-
 # tracing
+tokio = { version = "1.36.0", features = ["full"] }
 tracing = "0.1"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "registry"] }
@@ -46,8 +31,32 @@ opentelemetry-otlp = "0.14.0"
 opentelemetry_sdk = { version = "0.21.2", features = ["trace", "rt-tokio"] }
 opentelemetry-semantic-conventions = "0.13.0"
 opentelemetry = "0.21.0"
-tokio = { version = "1.36.0", features = ["full"] }
 
+# error handling
+anyhow = "1.0.71"
+thiserror = "1.0.56"
+
+# cli
+clap = { version = "4.3.10", features = ["derive", "env", "color"] }
+clap-verbosity-flag = "2.0.1"
+
+# serialization
+serde = { version = "1.0.164", features = ["derive"] }
+serde_derive = "1.0.164"
+serde_json = "1.0.99"
+serde_yaml = "0.9.22"
+
+# misc
+strum_macros = "0.26.1"
+strum = { version = "0.26.1", features = ["derive"] }
+uuid = { version = "1.7.0", features = ["v4", "fast-rng"] }
+similar = "2.4.0"
+rand = "0.8.5"
+bat = "0.23.0"
+colored = "2.0.4"
+console = "0.15.8"
+inquire = "0.7.0"
+spinners = "4.1.1"
 
 [dev-dependencies]
 rstest = "0.18.2"
@@ -63,5 +72,5 @@ unsafe_code = "forbid"
 
 [lints.clippy]
 enum_glob_use = "deny"
-nursery = "deny"
+nursery = { level = "deny", priority = -1 }
 unwrap_used = "deny"
