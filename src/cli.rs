@@ -23,10 +23,10 @@ use tracing::{debug, info, instrument};
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const OS_PLATFORM: &str = std::env::consts::OS;
-const VERSION_STR: &str = concat!(env!("CARGO_PKG_VERSION"), "-", env!("GIT_HASH"));
+const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Parser, Debug)]
-#[command(author, version = VERSION_STR, about)]
+#[command(author, version, about)]
 #[command(propagate_version = true)]
 #[command(arg_required_else_help = true)]
 pub struct Cli {
