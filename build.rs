@@ -24,7 +24,7 @@ fn main() {
         )
         .expect("cargo_vcs_info.json should contain expected info");
 
-        (&vcs_info.git.sha1[..GIT_SHA_LEN]).trim().to_string()
+        vcs_info.git.sha1[..GIT_SHA_LEN].trim().to_string()
     } else {
         println!("cargo::rerun-if-changed=.git/HEAD");
 
@@ -34,7 +34,8 @@ fn main() {
             .expect("should be able to get commit hash");
         String::from_utf8(output.stdout)
             .expect("commit hash should be valid utf8")
-            .trim().to_string()
+            .trim()
+            .to_string()
     };
 
     assert!(
