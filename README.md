@@ -66,6 +66,10 @@ axl project open --help
 axl project open -m tmux
 ```
 
+## Future Enhancements
+
+- Cache resolved project files and only update if there is a change to any of the project definition files.
+
 ## Tracing
 
 This cli is instrumented with tokio tracing. If you increase the verbosity of the cli you will see more logs with details that can help with troubleshooting.

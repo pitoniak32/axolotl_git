@@ -2,14 +2,14 @@ use anyhow::Result;
 use clap::ValueEnum;
 use tracing::instrument;
 
-use crate::project::{project_type::Project, subcommand::ProjectArgs};
+use crate::project::{project_type::ResolvedProject, subcommand::ProjectArgs};
 
 use self::tmux::Tmux;
 
 pub mod tmux;
 
 pub trait Multiplexer {
-    fn open(self, proj_args: &ProjectArgs, project: Project) -> Result<()>;
+    fn open(self, proj_args: &ProjectArgs, project: ResolvedProject) -> Result<()>;
     fn get_sessions(self) -> Vec<String>;
     fn get_current_session(self) -> String;
     fn kill_sessions(self, sessions: Vec<String>, current_session: &str) -> Result<()>;
@@ -23,7 +23,7 @@ pub enum Multiplexers {
 
 impl Multiplexer for Multiplexers {
     #[instrument(skip_all, err)]
-    fn open(self, proj_args: &ProjectArgs, project: Project) -> Result<()> {
+    fn open(self, proj_args: &ProjectArgs, project: ResolvedProject) -> Result<()> {
         match self {
             Self::Tmux => {
                 Tmux::open(proj_args, project)?;
