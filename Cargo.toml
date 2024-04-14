@@ -16,6 +16,12 @@ path = "src/lib.rs"
 name = "axl"
 path = "src/main.rs"
 
+[[example]]
+name = "list_projects"
+
+[[example]]
+name = "list_tags"
+
 [dependencies.git_lib]
 version = "0.1.1"
 # path = "../git_repo/git_lib"

@@ -43,21 +43,6 @@ impl ResolvedProject {
             tags,
         }
     }
-
-    #[instrument]
-    pub fn get_safe_name(&self) -> String {
-        self.safe_name.clone()
-    }
-
-    #[instrument]
-    pub fn get_name(&self) -> String {
-        self.name.clone()
-    }
-
-    #[instrument]
-    pub fn get_path(&self) -> PathBuf {
-        self.path.clone()
-    }
 }
 
 impl Display for ResolvedProject {
