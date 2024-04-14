@@ -35,8 +35,8 @@ include:
     name: renamed_project
 ```
 Now let `axl` know you would like to use this file with:
- - an env var `export PROJECTS_DIRECTORY_FILE=~/.config/axl/personal_projects.yml`
- - a flag `--projects-directory-file=~/.config/axl/personal_projects.yml`
+ - an env var `export AXL_PROJECTS_CONFIG_PATH=~/.config/axl/personal_projects.yml`
+ - a flag `--projects-config-path=~/.config/axl/personal_projects.yml`
 
 Check the available commands
 ```

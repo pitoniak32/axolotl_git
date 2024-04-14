@@ -24,27 +24,24 @@ impl Tmux {
             project,
         );
 
-        if !project.get_path().exists() {
+        if !project.path.exists() {
             return Err(AxlError::ProjectPathDoesNotExist(
-                project.get_path().to_string_lossy().to_string(),
+                project.path.to_string_lossy().to_string(),
             )
             .into());
         }
 
         if !Self::in_session() {
-            Self::create_new_attached_attach_if_exists(
-                &project.get_safe_name(),
-                &project.get_path(),
-            )?;
-        } else if Self::has_session(&project.get_safe_name()) {
-            let safe_name = project.get_safe_name();
+            Self::create_new_attached_attach_if_exists(&project.safe_name, &project.path)?;
+        } else if Self::has_session(&project.safe_name) {
+            let safe_name = project.safe_name;
             info!("Session '{safe_name}' already exists, opening.");
             Self::switch(&safe_name)?;
         } else {
-            let safe_name = project.get_safe_name();
+            let safe_name = project.safe_name;
             info!("Session '{safe_name}' does not already exist, creating and opening.",);
 
-            if Self::create_new_detached(&safe_name, &project.get_path())
+            if Self::create_new_detached(&safe_name, &project.path)
                 .is_ok_and(|o| o.status.success())
             {
                 Self::switch(&safe_name)?;

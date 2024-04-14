@@ -78,9 +78,9 @@ pub enum ProjectSubcommand {
         filter_args: FilterArgs,
         #[arg(short, long, value_enum, default_value_t=OutputFormat::Json)]
         output: OutputFormat,
-        /// Only show the project names.
+        /// Only show specific field value.
         #[arg(long)]
-        name_only: bool,
+        only: Option<OnlyOptions>,
     },
     /// List all tags used on projects tracked in your config list.
     ListTags {
@@ -136,6 +136,16 @@ pub enum OutputFormat {
     JsonR,
     /// yaml.
     Yaml,
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+pub enum OnlyOptions {
+    /// only show name.
+    Name,
+    /// only show safe name.
+    SafeName,
+    /// only show remote.
+    Remote,
 }
 
 impl ProjectSubcommand {
@@ -338,18 +348,32 @@ impl ProjectSubcommand {
                 proj_args,
                 filter_args,
                 output,
-                name_only,
+                only,
             } => {
                 let filtered_project_directory = ResolvedProjectDirectory::new_filtered(
                     &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
                     &filter_args.tags,
                 )?;
                 let projects = filtered_project_directory.get_projects_from_remotes()?;
-                if name_only {
-                    formatted_print_iter(output, projects.into_iter().map(|p| p.name))
+                if let Some(o) = only {
+                    match o {
+                        OnlyOptions::Name => {
+                            formatted_print_iter(output, projects.into_iter().map(|p| p.name))?;
+                        }
+                        OnlyOptions::SafeName => {
+                            formatted_print_iter(
+                                output,
+                                projects.into_iter().map(|p| p.safe_name),
+                            )?;
+                        }
+                        OnlyOptions::Remote => {
+                            formatted_print_iter(output, projects.into_iter().map(|p| p.remote))?;
+                        }
+                    }
                 } else {
-                    formatted_print_iter(output, projects.iter())
+                    formatted_print_iter(output, projects.iter())?;
                 }
+                Ok(())
             }
             Self::ListTags { proj_args, output } => {
                 let project_directory = ResolvedProjectDirectory::new(
