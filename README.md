@@ -28,6 +28,7 @@ path: `~/.config/axl/personal_projects.yml`
 ```yml
 projects_directory: "/path/to/your/Projects"
 include: 
+  - /path/to/group/file.yml
   - remote: git@github.com:your_github/your_project.git
     tags: [test_tag]
   - remote: git@github.com:your_github/your_other_project.git
@@ -42,7 +43,7 @@ Check the available commands
 $ axl --help
 project management cli
 
-Usage: axl [OPTIONS] [COMMAND]
+Usage: axl [OPTIONS] <COMMAND>
 
 Commands:
   project  Commands for managing projects
@@ -51,19 +52,9 @@ Commands:
 Options:
   -v, --verbose...                 Increase logging verbosity
   -q, --quiet...                   Decrease logging verbosity
-  -c, --config-path <CONFIG_PATH>  Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.axlrc.yml' defaults
+  -c, --config-path <CONFIG_PATH>  Override '$XDG_CONFIG_HOME/axl/config.yml' or '$HOME/.axlrc.yml' defaults [env: AXL_CONFIG_PATH=]
   -h, --help                       Print help
   -V, --version                    Print version
-```
-
-#### Helpful Commands
-open
-```
-axl project open --help 
-```
-
-```
-axl project open -m tmux
 ```
 
 ## Future Enhancements
