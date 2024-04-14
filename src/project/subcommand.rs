@@ -7,10 +7,10 @@ use tracing::{debug, error, instrument, trace};
 
 use crate::{
     config::{config_env::ConfigEnvKey, config_file::AxlContext},
-    helper::fzf_get_sessions,
+    helper::{formatted_print_iter, fzf_get_sessions},
     multiplexer::{Multiplexer, Multiplexers},
     project::{
-        project_directory::{ConfigProjectDirectory, ResolvedProjectDirectory},
+        project_file::{ConfigProjectDirectory, ResolvedProjectDirectory},
         project_type::{ConfigProject, ResolvedProject},
     },
 };
@@ -25,8 +25,8 @@ pub struct SessionArgs {
 #[derive(Args, Debug)]
 pub struct ProjectArgs {
     /// Manually set the project root dir.
-    #[arg(long, env)]
-    projects_directory_file: PathBuf,
+    #[arg(long, env("AXL_PROJECTS_CONFIG_PATH"))]
+    projects_config_path: PathBuf,
 }
 
 #[derive(Args, Debug)]
@@ -76,14 +76,17 @@ pub enum ProjectSubcommand {
         proj_args: ProjectArgs,
         #[clap(flatten)]
         filter_args: FilterArgs,
-        #[arg(short, long, value_enum, default_value_t=OutputFormat::Debug)]
+        #[arg(short, long, value_enum, default_value_t=OutputFormat::Json)]
         output: OutputFormat,
+        /// Only show the project names.
+        #[arg(long)]
+        name_only: bool,
     },
     /// List all tags used on projects tracked in your config list.
     ListTags {
         #[clap(flatten)]
         proj_args: ProjectArgs,
-        #[arg(short, long, value_enum, default_value_t=OutputFormat::Debug)]
+        #[arg(short, long, value_enum, default_value_t=OutputFormat::Json)]
         output: OutputFormat,
     },
     /// Select projects to bring into axl tracking
@@ -133,8 +136,6 @@ pub enum OutputFormat {
     JsonR,
     /// yaml.
     Yaml,
-    /// csv for excel spreadsheets.
-    Csv,
 }
 
 impl ProjectSubcommand {
@@ -148,10 +149,10 @@ impl ProjectSubcommand {
             } => {
                 debug!(
                     "using [{:?}] projects file.",
-                    proj_args.projects_directory_file
+                    proj_args.projects_config_path
                 );
                 let projects_directory_file = ResolvedProjectDirectory::new_filtered(
-                    &ConfigProjectDirectory::new(&proj_args.projects_directory_file)?,
+                    &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
                     &filter_args.tags,
                 )?;
                 let project = projects_directory_file.get_project()?;
@@ -190,10 +191,10 @@ impl ProjectSubcommand {
             Self::New { proj_args, ssh_uri } => {
                 debug!(
                     "using [{:?}] projects file.",
-                    proj_args.projects_directory_file
+                    proj_args.projects_config_path
                 );
                 let mut project_directory = ResolvedProjectDirectory::new(
-                    &ConfigProjectDirectory::new(&proj_args.projects_directory_file)?,
+                    &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
                 )?;
                 if project_directory
                     .projects
@@ -229,7 +230,7 @@ impl ProjectSubcommand {
                 filter_args,
             } => {
                 let filtered_project_directory = ResolvedProjectDirectory::new_filtered(
-                    &ConfigProjectDirectory::new(&proj_args.projects_directory_file)?,
+                    &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
                     &filter_args.tags,
                 )?;
                 trace!(
@@ -244,7 +245,7 @@ impl ProjectSubcommand {
                 trace!("got projects from fs [{:#?}]", &projects_fs);
                 trace!(
                     "getting projects from project_directory_file [{}] remotes",
-                    &proj_args.projects_directory_file.to_string_lossy()
+                    &proj_args.projects_config_path.to_string_lossy()
                 );
                 let projects_remotes = filtered_project_directory.get_projects_from_remotes()?;
                 trace!(
@@ -302,7 +303,7 @@ impl ProjectSubcommand {
                 directory,
             } => {
                 let mut project_directory_file = ResolvedProjectDirectory::new(
-                    &ConfigProjectDirectory::new(&proj_args.projects_directory_file)?,
+                    &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
                 )?;
 
                 let existing_projects = project_directory_file
@@ -337,37 +338,22 @@ impl ProjectSubcommand {
                 proj_args,
                 filter_args,
                 output,
+                name_only,
             } => {
                 let filtered_project_directory = ResolvedProjectDirectory::new_filtered(
-                    &ConfigProjectDirectory::new(&proj_args.projects_directory_file)?,
+                    &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
                     &filter_args.tags,
                 )?;
                 let projects = filtered_project_directory.get_projects_from_remotes()?;
-                match output {
-                    OutputFormat::Debug => {
-                        println!("{:#?}", projects);
-                    }
-                    OutputFormat::Json => {
-                        println!("{}", serde_json::to_string_pretty(&projects)?)
-                    }
-                    OutputFormat::Yaml => println!("{}", serde_yaml::to_string(&projects)?),
-                    OutputFormat::Csv => println!(
-                        "{},",
-                        projects
-                            .iter()
-                            .map(|p| p.name.clone())
-                            .collect::<Vec<_>>()
-                            .join(",\n")
-                    ),
-                    OutputFormat::JsonR => {
-                        println!("{}", serde_json::to_string(&projects)?)
-                    }
+                if name_only {
+                    formatted_print_iter(output, projects.into_iter().map(|p| p.name))
+                } else {
+                    formatted_print_iter(output, projects.iter())
                 }
-                Ok(())
             }
             Self::ListTags { proj_args, output } => {
                 let project_directory = ResolvedProjectDirectory::new(
-                    &ConfigProjectDirectory::new(&proj_args.projects_directory_file)?,
+                    &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
                 )?;
                 let tags = project_directory.get_projects_from_remotes()?.iter().fold(
                     BTreeSet::new(),
@@ -376,22 +362,7 @@ impl ProjectSubcommand {
                         acc
                     },
                 );
-                match output {
-                    OutputFormat::Debug => {
-                        println!("{:#?}", tags);
-                    }
-                    OutputFormat::Json => {
-                        println!("{}", serde_json::to_string_pretty(&tags)?)
-                    }
-                    OutputFormat::Yaml => println!("{}", serde_yaml::to_string(&tags)?),
-                    OutputFormat::Csv => {
-                        println!("{},", tags.iter().cloned().collect::<Vec<_>>().join(",\n"))
-                    }
-                    OutputFormat::JsonR => {
-                        println!("{}", serde_json::to_string(&tags)?)
-                    }
-                }
-                Ok(())
+                formatted_print_iter(output, tags.iter())
             }
         }
     }

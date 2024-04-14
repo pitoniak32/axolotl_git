@@ -295,7 +295,7 @@ mod tests {
     use similar_asserts::assert_eq;
 
     use crate::project::{
-        project_directory::ConfigProjectDirectory,
+        project_file::ConfigProjectDirectory,
         project_type::{ConfigProject, ResolvedProject},
     };
 

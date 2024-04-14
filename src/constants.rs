@@ -1,5 +1,7 @@
 use colored::CustomColor;
+use strum_macros::EnumIter;
 
+#[derive(EnumIter)]
 pub enum AxlColor {
     HotPink,
     TiffanyBlue,

@@ -52,7 +52,6 @@ strum = { version = "0.26.1", features = ["derive"] }
 uuid = { version = "1.7.0", features = ["v4", "fast-rng"] }
 similar = "2.4.0"
 rand = "0.8.5"
-bat = "0.23.0"
 colored = "2.0.4"
 console = "0.15.8"
 inquire = "0.7.0"
