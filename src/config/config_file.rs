@@ -23,12 +23,12 @@ pub struct AxlConfig {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub struct GeneralConfig {
     #[serde(default = "art_default")]
-    pub show_art: bool,
+    pub show_art: Option<bool>,
 }
 
-const fn art_default() -> bool {
+const fn art_default() -> Option<bool> {
     // Set to false since most commands pull up a prompt immediately
-    false
+    None
 }
 
 impl AxlConfig {
@@ -40,8 +40,10 @@ impl AxlConfig {
         } else {
             Self::default()
         };
-        loaded_config.general.show_art = std::env::var("AXL_SHOW_ART")
-            .map_or(loaded_config.general.show_art, |val| val == "true");
+        let env_show_art = std::env::var("AXL_SHOW_ART").map_or(None, |val| Some(val == "true"));
+        if env_show_art.is_some() {
+            loaded_config.general.show_art = env_show_art;
+        }
         info!("config: {:#?}", loaded_config);
         Ok(loaded_config)
     }
@@ -90,7 +92,9 @@ mod tests {
         assert_eq!(
             loaded_config,
             AxlConfig {
-                general: GeneralConfig { show_art: true }
+                general: GeneralConfig {
+                    show_art: Some(true)
+                }
             }
         );
 
@@ -106,7 +110,7 @@ mod tests {
         assert_eq!(
             loaded_config,
             AxlConfig {
-                general: GeneralConfig { show_art: false }
+                general: GeneralConfig { show_art: None }
             }
         );
 

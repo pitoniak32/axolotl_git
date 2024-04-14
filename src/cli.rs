@@ -13,13 +13,13 @@ use axl_lib::{
     error::AxlError,
     project::subcommand::ProjectSubcommand,
 };
-use bat::PrettyPrinter;
 use clap::{Args, Parser, Subcommand};
 use clap_verbosity_flag::LogLevel;
 use colored::Colorize;
 use rand::Rng;
+use strum::IntoEnumIterator;
 use strum_macros::Display;
-use tracing::{debug, info, instrument};
+use tracing::{debug, instrument};
 
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const OS_PLATFORM: &str = std::env::consts::OS;
@@ -43,19 +43,10 @@ pub struct Cli {
 impl Cli {
     #[instrument(skip_all, err)]
     pub fn init(mut self) -> Result<Self> {
-        info!("cli_before_config_init: {self:#?}");
-        let _ = &self.set_config_path()?;
-        let show_art_arg = &self.context.config.general.show_art;
+        debug!("cli_before_config_init: {self:#?}");
+        self.set_config_path()?;
         let axl_config: AxlConfig = AxlConfig::from_file(&self.context.config_path)?;
-        let show_art = *show_art_arg && axl_config.general.show_art;
-        Self::print_version_string(show_art);
-        if show_art {
-            Self::print_yaml_string(
-                serde_yaml::to_string(&axl_config)
-                    .expect("Should be able to convert struct to yaml string"),
-            );
-        }
-
+        Self::print_version_string(axl_config.general.show_art.is_some_and(|val| val));
         self.context.config = axl_config;
         debug!("cli_after_config_init: {self:#?}");
 
@@ -71,30 +62,22 @@ impl Cli {
             "@".custom_color(AxlColor::HotPink.into()),
             VERSION_STR.custom_color(AxlColor::TiffanyBlue.into()),
             "on".custom_color(AxlColor::HotPink.into()),
-            OS_PLATFORM.custom_color(AxlColor::Mint.into()),
+            OS_PLATFORM.custom_color(AxlColor::TiffanyBlue.into()),
             "=~".custom_color(AxlColor::HotPink.into()),
             if show_art {
-                ASCII_ART[rand::thread_rng().gen_range(0..ASCII_ART.len())]
-                    .custom_color(AxlColor::TiffanyBlue.into())
+                let mut colors = AxlColor::iter();
+                let rand_color_index = rand::thread_rng().gen_range(0..colors.len());
+                let rand_art_index = rand::thread_rng().gen_range(0..ASCII_ART.len());
+                format!("\n{}", ASCII_ART[rand_art_index]).custom_color(
+                    colors
+                        .nth(rand_color_index)
+                        .unwrap_or(AxlColor::TiffanyBlue)
+                        .into(),
+                )
             } else {
                 "".normal()
             },
         );
-    }
-
-    #[instrument(skip_all)]
-    fn print_yaml_string(content: String) {
-        let bytes = content.as_bytes();
-        PrettyPrinter::new()
-            .language("yaml")
-            .line_numbers(false)
-            .grid(false)
-            .header(false)
-            .theme("Nord")
-            .input_from_bytes(bytes)
-            .print()
-            .expect("yaml pretty printer should not fail");
-        println!();
     }
 
     #[instrument(skip_all, err)]
@@ -172,8 +155,8 @@ pub struct SharedArgs {
     #[clap(flatten)]
     pub verbosity: clap_verbosity_flag::Verbosity<OffLevel>,
 
-    /// Override '$XDG_CONFIG_HOME/config.yml' or '$HOME/.axlrc.yml' defaults.
-    #[arg(short, long)]
+    /// Override '$XDG_CONFIG_HOME/axl/config.yml' or '$HOME/.axlrc.yml' defaults.
+    #[arg(short, long, env("AXL_CONFIG_PATH"))]
     config_path: Option<PathBuf>,
 }
 

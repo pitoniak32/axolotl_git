@@ -8,7 +8,7 @@ use anyhow::Result;
 use colored::Colorize;
 use tracing::{info, instrument, warn};
 
-use crate::{error::AxlError, fzf::FzfCmd};
+use crate::{error::AxlError, fzf::FzfCmd, project::subcommand::OutputFormat};
 
 #[instrument(err)]
 pub fn wrap_command(command: &mut Command) -> Result<Output> {
@@ -67,4 +67,24 @@ pub fn get_directories(path: &Path) -> Result<Vec<PathBuf>> {
             }
         })
         .collect())
+}
+
+pub fn formatted_print_iter<T>(output: OutputFormat, value: impl Iterator<Item = T>) -> Result<()>
+where
+    T: std::fmt::Debug + serde::Serialize,
+{
+    let vecd = value.collect::<Vec<_>>();
+    match output {
+        OutputFormat::Debug => {
+            println!("{:#?}", vecd);
+        }
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&vecd)?)
+        }
+        OutputFormat::Yaml => println!("{}", serde_yaml::to_string(&vecd)?),
+        OutputFormat::JsonR => {
+            println!("{}", serde_json::to_string(&vecd)?)
+        }
+    }
+    Ok(())
 }
