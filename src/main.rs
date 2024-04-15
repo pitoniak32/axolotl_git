@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
             Ok(cli) => match cli.handle_command() {
                 Ok(_) => {}
                 Err(err) => {
-                    let msg = format!("[ERROR (CMD)]: {err:?}");
+                    let msg = format!("[CMD ERROR]: {err:?}");
                     error!(run.uuid = trace_uuid.to_string(), msg,);
                     eprintln!("{}", msg.red().bold());
                     if cli.args.pause_on_error {
@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
                 }
             },
             Err(err) => {
-                let msg = format!("[ERROR (INIT)]: {err:?}");
+                let msg = format!("[INIT ERROR]: {err:?}");
                 error!(run.uuid = trace_uuid.to_string(), msg,);
                 eprintln!("{}", msg.red().bold());
                 exit(1)

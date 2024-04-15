@@ -69,21 +69,20 @@ pub fn get_directories(path: &Path) -> Result<Vec<PathBuf>> {
         .collect())
 }
 
-pub fn formatted_print_iter<T>(output: &OutputFormat, value: impl Iterator<Item = T>) -> Result<()>
+pub fn formatted_print<T>(output: &OutputFormat, value: T) -> Result<()>
 where
     T: std::fmt::Debug + serde::Serialize,
 {
-    let vecd = value.collect::<Vec<_>>();
     match output {
         OutputFormat::Debug => {
-            println!("{:#?}", vecd);
+            println!("{:#?}", value);
         }
         OutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(&vecd)?)
+            println!("{}", serde_json::to_string_pretty(&value)?)
         }
-        OutputFormat::Yaml => println!("{}", serde_yaml::to_string(&vecd)?),
+        OutputFormat::Yaml => println!("{}", serde_yaml::to_string(&value)?),
         OutputFormat::JsonR => {
-            println!("{}", serde_json::to_string(&vecd)?)
+            println!("{}", serde_json::to_string(&value)?)
         }
     }
     Ok(())

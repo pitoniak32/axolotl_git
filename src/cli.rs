@@ -9,9 +9,10 @@ use axl_lib::{
         config_env::ConfigEnvKey,
         config_file::{AxlConfig, AxlContext},
     },
-    constants::{AxlColor, ASCII_ART},
+    constants::{AxlColor, CliInfo, ASCII_ART, GIT_SHA_LONG, OS_PLATFORM, PROJ_NAME, VERSION_STR},
     error::AxlError,
-    project::subcommand::ProjectSubcommand,
+    helper::formatted_print,
+    project::subcommand::{OutputFormat, ProjectSubcommand},
 };
 use clap::{Args, Parser, Subcommand};
 use clap_verbosity_flag::LogLevel;
@@ -21,12 +22,8 @@ use strum::IntoEnumIterator;
 use strum_macros::Display;
 use tracing::{debug, instrument};
 
-const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
-const OS_PLATFORM: &str = std::env::consts::OS;
-const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
-
 #[derive(Parser, Debug)]
-#[command(author, version, about)]
+#[command(author, version = VERSION_STR, about)]
 #[command(propagate_version = true)]
 #[command(arg_required_else_help = true)]
 pub struct Cli {
@@ -68,7 +65,7 @@ impl Cli {
                 let mut colors = AxlColor::iter();
                 let rand_color_index = rand::thread_rng().gen_range(0..colors.len());
                 let rand_art_index = rand::thread_rng().gen_range(0..ASCII_ART.len());
-                format!("\n{}", ASCII_ART[rand_art_index]).custom_color(
+                ASCII_ART[rand_art_index].to_string().custom_color(
                     colors
                         .nth(rand_color_index)
                         .unwrap_or(AxlColor::TiffanyBlue)
@@ -136,6 +133,11 @@ pub enum Commands {
     /// All commands are using the selected project directory.
     #[strum()]
     Project(ProjectSubcommand),
+
+    Info {
+        #[arg(short, long, value_enum, default_value_t=OutputFormat::Json)]
+        output: OutputFormat,
+    },
 }
 
 impl Commands {
@@ -144,6 +146,14 @@ impl Commands {
         match command {
             Self::Project(subcommand) => {
                 ProjectSubcommand::handle_cmd(subcommand, context)?;
+            }
+            Self::Info { output } => {
+                let info = CliInfo {
+                    version: VERSION_STR,
+                    os_platform: OS_PLATFORM,
+                    commit: GIT_SHA_LONG,
+                };
+                formatted_print(output, info)?;
             }
         }
         Ok(())

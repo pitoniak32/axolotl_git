@@ -7,7 +7,7 @@ use tracing::{debug, error, instrument, trace};
 
 use crate::{
     config::{config_env::ConfigEnvKey, config_file::AxlContext},
-    helper::{formatted_print_iter, fzf_get_sessions},
+    helper::{formatted_print, fzf_get_sessions},
     multiplexer::{Multiplexer, Multiplexers},
     project::{
         project_file::{ConfigProjectDirectory, ResolvedProjectDirectory},
@@ -360,20 +360,29 @@ impl ProjectSubcommand {
                 if let Some(o) = only {
                     match o {
                         OnlyOptions::Name => {
-                            formatted_print_iter(output, projects.into_iter().map(|p| p.name))?;
+                            formatted_print(
+                                output,
+                                projects.into_iter().map(|p| p.name).collect::<Vec<_>>(),
+                            )?;
                         }
                         OnlyOptions::SafeName => {
-                            formatted_print_iter(
+                            formatted_print(
                                 output,
-                                projects.into_iter().map(|p| p.safe_name),
+                                projects
+                                    .into_iter()
+                                    .map(|p| p.safe_name)
+                                    .collect::<Vec<_>>(),
                             )?;
                         }
                         OnlyOptions::Remote => {
-                            formatted_print_iter(output, projects.into_iter().map(|p| p.remote))?;
+                            formatted_print(
+                                output,
+                                projects.into_iter().map(|p| p.remote).collect::<Vec<_>>(),
+                            )?;
                         }
                     }
                 } else {
-                    formatted_print_iter(output, projects.iter())?;
+                    formatted_print(output, projects)?;
                 }
                 Ok(())
             }
@@ -388,7 +397,7 @@ impl ProjectSubcommand {
                         acc
                     },
                 );
-                formatted_print_iter(output, tags.iter())
+                formatted_print(output, tags)
             }
         }
     }
