@@ -122,8 +122,8 @@ impl Cli {
     }
 
     #[instrument(skip(self), fields(command.name = %self.command), err)]
-    pub fn handle_command(self) -> Result<()> {
-        Commands::handle(self.command, self.context, self.args)?;
+    pub fn handle_command(&self) -> Result<()> {
+        Commands::handle(&self.command, &self.context, &self.args)?;
         Ok(())
     }
 }
@@ -140,7 +140,7 @@ pub enum Commands {
 
 impl Commands {
     #[instrument(skip(command, context, _args), err)]
-    fn handle(command: Self, context: AxlContext, _args: SharedArgs) -> Result<()> {
+    fn handle(command: &Self, context: &AxlContext, _args: &SharedArgs) -> Result<()> {
         match command {
             Self::Project(subcommand) => {
                 ProjectSubcommand::handle_cmd(subcommand, context)?;
@@ -158,6 +158,12 @@ pub struct SharedArgs {
     /// Override '$XDG_CONFIG_HOME/axl/config.yml' or '$HOME/.axlrc.yml' defaults.
     #[arg(short, long, env("AXL_CONFIG_PATH"))]
     config_path: Option<PathBuf>,
+
+    /// Should the cli require user input to dismiss errors?
+    ///
+    /// Helpful for tmux popup prompts to see why a command failed.
+    #[arg(short, long)]
+    pub pause_on_error: bool,
 }
 
 #[derive(Debug)]

@@ -69,7 +69,7 @@ pub fn get_directories(path: &Path) -> Result<Vec<PathBuf>> {
         .collect())
 }
 
-pub fn formatted_print_iter<T>(output: OutputFormat, value: impl Iterator<Item = T>) -> Result<()>
+pub fn formatted_print_iter<T>(output: &OutputFormat, value: impl Iterator<Item = T>) -> Result<()>
 where
     T: std::fmt::Debug + serde::Serialize,
 {
