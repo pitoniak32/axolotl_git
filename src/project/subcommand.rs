@@ -150,7 +150,7 @@ pub enum OnlyOptions {
 
 impl ProjectSubcommand {
     #[instrument(skip(project_sub_cmd, _context), err)]
-    pub fn handle_cmd(project_sub_cmd: Self, _context: AxlContext) -> anyhow::Result<()> {
+    pub fn handle_cmd(project_sub_cmd: &Self, _context: &AxlContext) -> anyhow::Result<()> {
         match project_sub_cmd {
             Self::Open {
                 proj_args,
@@ -166,7 +166,7 @@ impl ProjectSubcommand {
                     &filter_args.tags,
                 )?;
                 let project = projects_directory_file.get_project()?;
-                sess_args.multiplexer.open(&proj_args, project)?;
+                sess_args.multiplexer.open(proj_args, project)?;
                 Ok(())
             }
             Self::Scratch {
@@ -176,10 +176,12 @@ impl ProjectSubcommand {
                 project_dir,
             } => {
                 sess_args.multiplexer.open(
-                    &proj_args,
+                    proj_args,
                     ResolvedProject::new(
-                        &project_dir.unwrap_or(PathBuf::try_from(ConfigEnvKey::Home)?),
-                        name.unwrap_or_else(|| "scratch".to_string()),
+                        &project_dir
+                            .clone()
+                            .unwrap_or(PathBuf::try_from(ConfigEnvKey::Home)?),
+                        name.clone().unwrap_or_else(|| "scratch".to_string()),
                         "".to_owned(),
                         BTreeSet::new(),
                     ),
@@ -209,7 +211,7 @@ impl ProjectSubcommand {
                 if project_directory
                     .projects
                     .iter()
-                    .filter(|config_proj| config_proj.remote == ssh_uri)
+                    .filter(|config_proj| &config_proj.remote == ssh_uri)
                     .count()
                     > 0
                 {
@@ -229,7 +231,7 @@ impl ProjectSubcommand {
                 }
                 project_directory.add_config_projects(vec![ConfigProject {
                     name: None,
-                    remote: ssh_uri,
+                    remote: ssh_uri.to_string(),
                     tags: BTreeSet::new(),
                 }])?;
                 println!("project was added to your root project_directory config.\nYou can now move it to a different group manually.");
@@ -326,7 +328,7 @@ impl ProjectSubcommand {
                 trace!("existing: {existing_projects:?}");
 
                 let selected_projects = ResolvedProjectDirectory::pick_config_projects(
-                    ResolvedProjectDirectory::get_projects_from_fs(&directory)?
+                    ResolvedProjectDirectory::get_projects_from_fs(directory)?
                         .0
                         .into_iter()
                         .filter(|sp| !existing_projects.contains(&sp.remote))

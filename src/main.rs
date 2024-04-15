@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
 use colored::Colorize;
+use inquire::Text;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
@@ -43,16 +44,19 @@ async fn main() -> Result<()> {
             Ok(cli) => match cli.handle_command() {
                 Ok(_) => {}
                 Err(err) => {
-                    let msg = format!("An error occurred while handling command: {err:?}");
+                    let msg = format!("[ERROR (CMD)]: {err:?}");
                     error!(run.uuid = trace_uuid.to_string(), msg,);
-                    eprintln!("{}", msg.red());
+                    eprintln!("{}", msg.red().bold());
+                    if cli.args.pause_on_error {
+                        Text::new("Press ENTER to continue...").prompt()?;
+                    }
                     exit(1)
                 }
             },
             Err(err) => {
-                let msg = format!("An error occurred during cli init: {err:?}");
+                let msg = format!("[ERROR (INIT)]: {err:?}");
                 error!(run.uuid = trace_uuid.to_string(), msg,);
-                eprintln!("{}", msg.red());
+                eprintln!("{}", msg.red().bold());
                 exit(1)
             }
         }
