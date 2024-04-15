@@ -1,8 +1,6 @@
 name: Publish Crate
 on:
   workflow_dispatch: {}
-env:
-  CARGO_PUBLISH_CI: true
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

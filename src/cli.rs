@@ -21,12 +21,19 @@ use strum::IntoEnumIterator;
 use strum_macros::Display;
 use tracing::{debug, instrument};
 
+const GIT_SHORT_HASH_MIN: usize = 7;
+
 const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
 const OS_PLATFORM: &str = std::env::consts::OS;
-const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
+const VERSION_STR: &str =
+    if option_env!("GIT_HASH").is_some() && env!("GIT_HASH").len() >= GIT_SHORT_HASH_MIN {
+        concat!(env!("CARGO_PKG_VERSION"), "-dev-", env!("GIT_HASH"))
+    } else {
+        env!("CARGO_PKG_VERSION")
+    };
 
 #[derive(Parser, Debug)]
-#[command(author, version, about)]
+#[command(author, version = VERSION_STR, about)]
 #[command(propagate_version = true)]
 #[command(arg_required_else_help = true)]
 pub struct Cli {
