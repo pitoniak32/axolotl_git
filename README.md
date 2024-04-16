@@ -58,8 +58,8 @@ Options:
 ```
 
 ## Future Enhancements
-
 - Cache resolved project files and only update if there is a change to any of the project definition files.
+- Fancy `fzf` custom prompts like [zoxide](https://github.com/ajeetdsouza/zoxide).
 
 ## Tracing
 
