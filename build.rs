@@ -16,15 +16,13 @@ const GIT_SHA_SHORT_MIN: usize = 7;
 
 fn main() {
     println!("cargo::rerun-if-changed=.git/HEAD");
-
-    let git_sha_long = if std::env::var("CARGO_PUBLISH_CI").ok().is_some() {
+    let cargo_vcs_info = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".cargo_vcs_info.json");
+    let git_sha_long = if cargo_vcs_info.exists() {
         // not compatible with `cargo package` or `cargo publish` using `--allow-dirty` flag.
         // the `.cargo_vcs_info.json` file is not written
         serde_json::from_str::<CargoVcsInfo>(
-            &fs::read_to_string(
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".cargo_vcs_info.json"),
-            )
-            .expect("should be able to read cargo_vcs_info.json"),
+            &fs::read_to_string(cargo_vcs_info)
+                .expect("should be able to read cargo_vcs_info.json"),
         )
         .expect("cargo_vcs_info.json should contain expected info")
         .git
