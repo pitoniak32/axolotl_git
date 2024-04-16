@@ -16,7 +16,7 @@ const GIT_SHA_SHORT_MIN: usize = 7;
 
 fn main() {
     println!("cargo::rerun-if-changed=.git/HEAD");
-  
+
     let git_sha_long = if std::env::var("CARGO_PUBLISH_CI").ok().is_some() {
         // not compatible with `cargo package` or `cargo publish` using `--allow-dirty` flag.
         // the `.cargo_vcs_info.json` file is not written
