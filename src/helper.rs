@@ -5,10 +5,9 @@ use std::{
 };
 
 use anyhow::Result;
-use colored::Colorize;
 use tracing::{info, instrument, warn};
 
-use crate::{error::AxlError, fzf::FzfCmd, project::subcommand::OutputFormat};
+use crate::project::subcommand::OutputFormat;
 
 #[instrument(err)]
 pub fn wrap_command(command: &mut Command) -> Result<Output> {
@@ -26,22 +25,6 @@ pub fn wrap_command(command: &mut Command) -> Result<Output> {
     }
 
     Ok(output)
-}
-
-#[instrument(err)]
-pub fn fzf_get_sessions(session_names: Vec<String>) -> Result<Vec<String>> {
-    if session_names.is_empty() {
-        eprintln!("\n{}\n", "No sessions found to choose from.".blue().bold());
-        Err(AxlError::NoSessionsFound)?
-    }
-
-    Ok(FzfCmd::new()
-        .args(vec!["--phony", "--multi"])
-        .find_vec(session_names)?
-        .trim_end()
-        .split('\n')
-        .map(|s| s.to_string())
-        .collect())
 }
 
 #[instrument(err)]

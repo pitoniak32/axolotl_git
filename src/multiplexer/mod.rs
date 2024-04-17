@@ -1,16 +1,17 @@
+use std::path::Path;
+
 use anyhow::Result;
 use clap::ValueEnum;
 use tracing::instrument;
-
-use crate::project::{project_type::ResolvedProject, subcommand::ProjectArgs};
 
 use self::tmux::Tmux;
 
 pub mod tmux;
 
 pub trait Multiplexer {
-    fn open(self, proj_args: &ProjectArgs, project: ResolvedProject) -> Result<()>;
-    fn get_sessions(self) -> Vec<String>;
+    fn open(self, path: &Path, name: &str) -> Result<()>;
+    fn open_existing(self, name: &str) -> Result<()>;
+    fn get_sessions(self) -> Result<Vec<String>>;
     fn get_current_session(self) -> String;
     fn kill_sessions(self, sessions: Vec<String>, current_session: &str) -> Result<()>;
     fn unique_session(self) -> Result<()>;
@@ -23,17 +24,27 @@ pub enum Multiplexers {
 
 impl Multiplexer for Multiplexers {
     #[instrument(skip_all, err)]
-    fn open(self, proj_args: &ProjectArgs, project: ResolvedProject) -> Result<()> {
+    fn open(self, path: &Path, name: &str) -> Result<()> {
         match self {
             Self::Tmux => {
-                Tmux::open(proj_args, project)?;
+                Tmux::open(path, name)?;
+            }
+        }
+        Ok(())
+    }
+
+    #[instrument(skip_all, err)]
+    fn open_existing(self, name: &str) -> Result<()> {
+        match self {
+            Self::Tmux => {
+                Tmux::open_existing(name)?;
             }
         }
         Ok(())
     }
 
     #[instrument(skip_all)]
-    fn get_sessions(self) -> Vec<String> {
+    fn get_sessions(self) -> Result<Vec<String>> {
         match self {
             Self::Tmux => Tmux::list_sessions(),
         }

@@ -8,8 +8,10 @@ use axl_lib::{
     config::{
         config_env::ConfigEnvKey,
         config_file::{AxlConfig, AxlContext},
+        constants::{
+            print_version_string, CliInfo, AXL_GIT_SHA_LONG, AXL_VERSION_STR, OS_PLATFORM,
+        },
     },
-    constants::{AxlColor, CliInfo, ASCII_ART, GIT_SHA_LONG, OS_PLATFORM, PROJ_NAME, VERSION_STR},
     error::AxlError,
     helper::formatted_print,
     project::subcommand::{OutputFormat, ProjectSubcommand},
@@ -17,13 +19,11 @@ use axl_lib::{
 use clap::{Args, Parser, Subcommand};
 use clap_verbosity_flag::LogLevel;
 use colored::Colorize;
-use rand::Rng;
-use strum::IntoEnumIterator;
 use strum_macros::Display;
 use tracing::{debug, instrument};
 
 #[derive(Parser, Debug)]
-#[command(author, version = VERSION_STR, about)]
+#[command(author, version = AXL_VERSION_STR, about)]
 #[command(propagate_version = true)]
 #[command(arg_required_else_help = true)]
 pub struct Cli {
@@ -43,38 +43,11 @@ impl Cli {
         debug!("cli_before_config_init: {self:#?}");
         self.set_config_path()?;
         let axl_config: AxlConfig = AxlConfig::from_file(&self.context.config_path)?;
-        Self::print_version_string(axl_config.general.show_art.is_some_and(|val| val));
+        print_version_string(axl_config.general.show_art.is_some_and(|val| val));
         self.context.config = axl_config;
         debug!("cli_after_config_init: {self:#?}");
 
         Ok(self)
-    }
-
-    #[instrument]
-    fn print_version_string(show_art: bool) {
-        eprintln!(
-            "{} {}{}{} {} {} {}\n{}",
-            "~=".custom_color(AxlColor::HotPink.into()),
-            PROJ_NAME.custom_color(AxlColor::TiffanyBlue.into()),
-            "@".custom_color(AxlColor::HotPink.into()),
-            VERSION_STR.custom_color(AxlColor::TiffanyBlue.into()),
-            "on".custom_color(AxlColor::HotPink.into()),
-            OS_PLATFORM.custom_color(AxlColor::TiffanyBlue.into()),
-            "=~".custom_color(AxlColor::HotPink.into()),
-            if show_art {
-                let mut colors = AxlColor::iter();
-                let rand_color_index = rand::thread_rng().gen_range(0..colors.len());
-                let rand_art_index = rand::thread_rng().gen_range(0..ASCII_ART.len());
-                ASCII_ART[rand_art_index].to_string().custom_color(
-                    colors
-                        .nth(rand_color_index)
-                        .unwrap_or(AxlColor::TiffanyBlue)
-                        .into(),
-                )
-            } else {
-                "".normal()
-            },
-        );
     }
 
     #[instrument(skip_all, err)]
@@ -149,9 +122,9 @@ impl Commands {
             }
             Self::Info { output } => {
                 let info = CliInfo {
-                    version: VERSION_STR,
+                    version: AXL_VERSION_STR,
                     os_platform: OS_PLATFORM,
-                    commit: GIT_SHA_LONG,
+                    commit: AXL_GIT_SHA_LONG,
                 };
                 formatted_print(output, info)?;
             }
