@@ -5,10 +5,9 @@ use std::{
 };
 
 use anyhow::Result;
-use colored::Colorize;
 use tracing::{info, instrument, warn};
 
-use crate::{error::AxlError, fzf::FzfCmd, project::subcommand::OutputFormat};
+use crate::project::subcommand::OutputFormat;
 
 #[instrument(err)]
 pub fn wrap_command(command: &mut Command) -> Result<Output> {
@@ -26,40 +25,6 @@ pub fn wrap_command(command: &mut Command) -> Result<Output> {
     }
 
     Ok(output)
-}
-
-#[instrument(err)]
-pub fn fzf_pick_many(items: Vec<String>) -> Result<Vec<String>> {
-    if items.is_empty() {
-        eprintln!("\n{}\n", "No items found to choose from.".blue().bold());
-        Err(AxlError::NoSessionsFound)?
-    }
-
-    Ok(FzfCmd::new()
-        .args(vec!["--phony", "--multi"])
-        .find_vec(items)?
-        .trim_end()
-        .split('\n')
-        .map(|s| s.to_string())
-        .collect())
-}
-
-#[instrument(err)]
-pub fn fzf_pick_one(items: Vec<String>) -> Result<String> {
-    if items.is_empty() {
-        eprintln!("\n{}\n", "No items found to choose from.".blue().bold());
-        Err(AxlError::NoSessionsFound)?
-    }
-
-    let picked: Vec<_> = FzfCmd::new()
-        .arg("--phony")
-        .find_vec(items)?
-        .trim_end()
-        .split('\n')
-        .map(|s| s.to_string())
-        .collect();
-
-    Ok(picked.first().expect("you must choose one item").clone())
 }
 
 #[instrument(err)]

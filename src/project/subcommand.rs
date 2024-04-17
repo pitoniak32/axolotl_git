@@ -7,8 +7,13 @@ use inquire::{validator::Validation, Confirm, Text};
 use tracing::{debug, error, instrument, trace};
 
 use crate::{
-    config::{config_env::ConfigEnvKey, config_file::AxlContext},
-    helper::{formatted_print, fzf_pick_many, fzf_pick_one},
+    config::{
+        config_env::ConfigEnvKey,
+        config_file::AxlContext,
+        constants::{DEFAULT_MULTIPLEXER_KEY, DEFAULT_PROJECTS_CONFIG_PATH_KEY},
+    },
+    fzf::FzfCmd,
+    helper::formatted_print,
     multiplexer::{Multiplexer, Multiplexers},
     project::{
         project_file::{ConfigProjectDirectory, ResolvedProjectDirectory},
@@ -26,7 +31,7 @@ pub struct SessionArgs {
 #[derive(Args, Debug)]
 pub struct ProjectArgs {
     /// Manually set the project root dir.
-    #[arg(long, env(DEFAULT_PROJECTS_CONFIG_PATH))]
+    #[arg(long, env(DEFAULT_PROJECTS_CONFIG_PATH_KEY))]
     projects_config_path: PathBuf,
 }
 
@@ -176,11 +181,11 @@ impl ProjectSubcommand {
                     proj_args.projects_config_path
                 );
                 if *existing {
-                    println!("picking from existing");
+                    trace!("picking from existing sessions...");
                     let sessions = sess_args.multiplexer.get_sessions()?;
                     sess_args
                         .multiplexer
-                        .open_existing(&fzf_pick_one(sessions)?)?;
+                        .open_existing(&FzfCmd::pick_one_filtered(sessions)?)?;
                 } else {
                     let projects_directory_file = ResolvedProjectDirectory::new_filtered(
                         &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
@@ -243,7 +248,7 @@ impl ProjectSubcommand {
             Self::Kill { sess_args } => {
                 let sessions = sess_args.multiplexer.get_sessions()?;
                 debug!("sessions: {sessions:?}");
-                let picked_sessions = fzf_pick_many(sessions)?;
+                let picked_sessions = FzfCmd::pick_many(sessions)?;
                 let current_session = sess_args.multiplexer.get_current_session();
                 debug!("current session: {current_session}");
                 sess_args

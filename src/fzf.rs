@@ -1,11 +1,19 @@
 use anyhow::Result;
+use colored::Colorize;
 use std::{
     ffi::OsStr,
     fmt::{Debug, Display},
     io::Write,
     process::{Command, Stdio},
 };
+use thiserror::Error;
 use tracing::instrument;
+
+#[derive(Error, Debug)]
+pub enum FzfError {
+    #[error("could not find any items to choose from")]
+    NoItemsFound,
+}
 
 #[derive(Debug)]
 pub struct FzfCmd {
@@ -19,7 +27,6 @@ impl Default for FzfCmd {
 }
 
 impl FzfCmd {
-    #[instrument]
     pub fn new() -> Self {
         Self {
             command: Command::new("fzf"),
@@ -86,5 +93,54 @@ impl FzfCmd {
         }
 
         Ok("".to_string())
+    }
+
+    #[instrument(err)]
+    pub fn pick_many(items: Vec<String>) -> Result<Vec<String>> {
+        if items.is_empty() {
+            eprintln!("\n{}\n", "No items found to choose from.".blue().bold());
+            Err(FzfError::NoItemsFound)?
+        }
+
+        Ok(Self::new()
+            .args(vec!["--phony", "--multi"])
+            .find_vec(items)?
+            .trim_end()
+            .split('\n')
+            .map(|s| s.to_string())
+            .collect())
+    }
+
+    #[instrument(err)]
+    pub fn pick_many_filtered(items: Vec<String>) -> Result<Vec<String>> {
+        if items.is_empty() {
+            eprintln!("\n{}\n", "No items found to choose from.".blue().bold());
+            Err(FzfError::NoItemsFound)?
+        }
+
+        Ok(Self::new()
+            .arg("--multi")
+            .find_vec(items)?
+            .trim_end()
+            .split('\n')
+            .map(|s| s.to_string())
+            .collect())
+    }
+
+    #[instrument(err)]
+    pub fn pick_one_filtered(items: Vec<String>) -> Result<String> {
+        if items.is_empty() {
+            eprintln!("\n{}\n", "No items found to choose from.".blue().bold());
+            Err(FzfError::NoItemsFound)?
+        }
+
+        let picked: Vec<_> = Self::new()
+            .find_vec(items)?
+            .trim_end()
+            .split('\n')
+            .map(|s| s.to_string())
+            .collect();
+
+        Ok(picked.first().expect("you must choose one item").clone())
     }
 }

@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Output},
 };
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::{config::config_env::ConfigEnvKey, error::AxlError, helper::wrap_command};
 
@@ -49,6 +49,11 @@ impl Tmux {
             "Attempting to open existing Tmux session with name: {:?}!",
             name,
         );
+
+        if !Self::in_session() {
+            trace!("Not currently in session, attempting to attach to tmux session",);
+            Self::attach()?;
+        }
 
         Self::switch(name)?;
 
@@ -177,6 +182,11 @@ impl Tmux {
     #[instrument(err)]
     fn switch(to_name: &str) -> Result<Output> {
         wrap_command(Command::new("tmux").args(["switch-client", "-t", to_name]))
+    }
+
+    #[instrument(err)]
+    fn attach() -> Result<Output> {
+        wrap_command(Command::new("tmux").args(["attach"]))
     }
 
     #[instrument]
