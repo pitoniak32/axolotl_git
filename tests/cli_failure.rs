@@ -1,3 +1,5 @@
+use std::env;
+
 use assert_cmd::Command;
 use rstest::rstest;
 
@@ -16,6 +18,7 @@ fn axl_project_no_args(
     #[case] expected_msg: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Arrange
+    env::remove_var("AXL_DEFAULT_MULTIPLEXER");
     let mut cmd = Command::cargo_bin("axl")?;
 
     for (key, value) in envs {

@@ -3,20 +3,27 @@ use std::{env, path::PathBuf};
 use thiserror::Error;
 use tracing::trace;
 
+use super::constants::{
+    DEFAULT_MULTIPLEXER_KEY, HOME_DIR_KEY, XDG_CONFIG_HOME_DIR_KEY, XDG_DATA_HOME_DIR_KEY,
+    XDG_STATE_HOME_DIR_KEY,
+};
+
 pub enum ConfigEnvKey {
     Home,
     XDGConfigHome,
     XDGDataHome,
     XDGStateHome,
+    DefaultMultiplexerKey,
 }
 
 impl ConfigEnvKey {
     pub const fn as_str(&self) -> &'static str {
         match self {
-            Self::Home => "HOME",
-            Self::XDGConfigHome => "XDG_CONFIG_HOME",
-            Self::XDGDataHome => "XDG_DATA_HOME",
-            Self::XDGStateHome => "XDG_STATE_HOME",
+            Self::Home => HOME_DIR_KEY,
+            Self::XDGConfigHome => XDG_CONFIG_HOME_DIR_KEY,
+            Self::XDGDataHome => XDG_DATA_HOME_DIR_KEY,
+            Self::XDGStateHome => XDG_STATE_HOME_DIR_KEY,
+            Self::DefaultMultiplexerKey => DEFAULT_MULTIPLEXER_KEY,
         }
     }
 
@@ -26,6 +33,7 @@ impl ConfigEnvKey {
             Self::XDGConfigHome => "",
             Self::XDGDataHome => "",
             Self::XDGStateHome => "",
+            Self::DefaultMultiplexerKey => "",
         }
     }
 }

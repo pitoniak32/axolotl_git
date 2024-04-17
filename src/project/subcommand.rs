@@ -18,7 +18,7 @@ use crate::{
 
 #[derive(Args, Debug)]
 pub struct SessionArgs {
-    #[arg(short, long, env("AXL_DEFAULT_MULTIPLEXER"))]
+    #[arg(short, long, env(DEFAULT_MULTIPLEXER_KEY))]
     /// Which multiplexer should be used for session creation.
     pub multiplexer: Multiplexers,
 }
@@ -26,7 +26,7 @@ pub struct SessionArgs {
 #[derive(Args, Debug)]
 pub struct ProjectArgs {
     /// Manually set the project root dir.
-    #[arg(long, env("AXL_PROJECTS_CONFIG_PATH"))]
+    #[arg(long, env(DEFAULT_PROJECTS_CONFIG_PATH))]
     projects_config_path: PathBuf,
 }
 
