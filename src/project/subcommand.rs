@@ -3,6 +3,7 @@ use std::{collections::BTreeSet, path::PathBuf};
 use clap::{arg, Args, Subcommand, ValueEnum};
 use colored::Colorize;
 use git_lib::repo::GitRepo;
+use inquire::{validator::Validation, Confirm, Text};
 use tracing::{debug, error, instrument, trace};
 
 use crate::{
@@ -17,8 +18,8 @@ use crate::{
 
 #[derive(Args, Debug)]
 pub struct SessionArgs {
-    #[arg(short, long)]
-    /// Which multiplexer session should be created.
+    #[arg(short, long, env("AXL_DEFAULT_MULTIPLEXER"))]
+    /// Which multiplexer should be used for session creation.
     pub multiplexer: Multiplexers,
 }
 
@@ -34,6 +35,17 @@ pub struct FilterArgs {
     /// Comma delimited list of tags narrowing projects that will be operated on.
     #[arg(long, short, value_delimiter = ',')]
     tags: Vec<String>,
+}
+
+#[derive(Args, Debug)]
+#[group(multiple = false)]
+pub struct ScratchDirArgs {
+    /// If not provided you will be prompted for a directory
+    #[arg(short, long)]
+    project_dir: Option<PathBuf>,
+    /// Ignore project directory, and use $HOME
+    #[arg(long)]
+    home: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -55,12 +67,11 @@ pub enum ProjectSubcommand {
         proj_args: ProjectArgs,
         #[clap(flatten)]
         sess_args: SessionArgs,
-        #[arg(short, long)]
-        /// Name of session, defaults to project_dir name
-        name: Option<String>,
-        #[arg(short, long)]
-        /// Name of session, defaults to project_dir name
-        project_dir: Option<PathBuf>,
+        /// Name of session
+        #[arg(short, long, default_value = "scratch")]
+        name: String,
+        #[clap(flatten)]
+        scratch_args: ScratchDirArgs,
     },
     /// Kill sessions.
     Kill {
@@ -186,14 +197,47 @@ impl ProjectSubcommand {
                 proj_args: _,
                 sess_args,
                 name,
-                project_dir,
+                scratch_args,
             } => {
-                sess_args.multiplexer.open(
-                    &project_dir
-                        .clone()
-                        .unwrap_or(PathBuf::try_from(ConfigEnvKey::Home)?),
-                    &name.clone().unwrap_or_else(|| "scratch".to_string()),
-                )?;
+                if sess_args.multiplexer.get_sessions()?.contains(name) {
+                    let ans = Confirm::new(&format!(
+                        "Opening existing session [{}], would you like to continue?",
+                        &name
+                    ))
+                    .with_default(true)
+                    .with_help_message(&format!("If you want to create a new session use --name flag, or kill the existing '{name}' session."))
+                    .prompt()?;
+                    if ans {
+                        sess_args.multiplexer.open_existing(name)?;
+                    }
+                    return Ok(());
+                }
+                let dir = if scratch_args.home {
+                    PathBuf::try_from(ConfigEnvKey::Home)?
+                } else if let Some(proj_dir) = scratch_args.project_dir.clone() {
+                    proj_dir
+                } else {
+                    let home = PathBuf::try_from(ConfigEnvKey::Home)?
+                        .to_string_lossy()
+                        .to_string();
+                    PathBuf::from(
+                        Text::new("Which path would you like to use?")
+                            .with_validator(|input: &str| {
+                                let path = PathBuf::from(input);
+                                if path.exists() {
+                                    Ok(Validation::Valid)
+                                } else {
+                                    Ok(Validation::Invalid(
+                                        "Please enter a path that exists".into(),
+                                    ))
+                                }
+                            })
+                            .with_default(&home)
+                            .with_initial_value(&home)
+                            .prompt()?,
+                    )
+                };
+                sess_args.multiplexer.open(&dir, name)?;
                 Ok(())
             }
             Self::Kill { sess_args } => {
