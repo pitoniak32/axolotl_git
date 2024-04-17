@@ -27,7 +27,7 @@ impl FzfCmd {
     }
 
     #[instrument(skip(self))]
-    pub fn _arg<S>(&mut self, arg: S) -> &mut Self
+    pub fn arg<S>(&mut self, arg: S) -> &mut Self
     where
         S: AsRef<OsStr> + Debug,
     {

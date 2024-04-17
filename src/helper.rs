@@ -29,19 +29,37 @@ pub fn wrap_command(command: &mut Command) -> Result<Output> {
 }
 
 #[instrument(err)]
-pub fn fzf_get_sessions(session_names: Vec<String>) -> Result<Vec<String>> {
-    if session_names.is_empty() {
-        eprintln!("\n{}\n", "No sessions found to choose from.".blue().bold());
+pub fn fzf_pick_many(items: Vec<String>) -> Result<Vec<String>> {
+    if items.is_empty() {
+        eprintln!("\n{}\n", "No items found to choose from.".blue().bold());
         Err(AxlError::NoSessionsFound)?
     }
 
     Ok(FzfCmd::new()
         .args(vec!["--phony", "--multi"])
-        .find_vec(session_names)?
+        .find_vec(items)?
         .trim_end()
         .split('\n')
         .map(|s| s.to_string())
         .collect())
+}
+
+#[instrument(err)]
+pub fn fzf_pick_one(items: Vec<String>) -> Result<String> {
+    if items.is_empty() {
+        eprintln!("\n{}\n", "No items found to choose from.".blue().bold());
+        Err(AxlError::NoSessionsFound)?
+    }
+
+    let picked: Vec<_> = FzfCmd::new()
+        .arg("--phony")
+        .find_vec(items)?
+        .trim_end()
+        .split('\n')
+        .map(|s| s.to_string())
+        .collect();
+
+    Ok(picked.first().expect("you must choose one item").clone())
 }
 
 #[instrument(err)]

@@ -7,11 +7,11 @@ use tracing::{debug, error, instrument, trace};
 
 use crate::{
     config::{config_env::ConfigEnvKey, config_file::AxlContext},
-    helper::{formatted_print, fzf_get_sessions},
+    helper::{formatted_print, fzf_pick_many, fzf_pick_one},
     multiplexer::{Multiplexer, Multiplexers},
     project::{
         project_file::{ConfigProjectDirectory, ResolvedProjectDirectory},
-        project_type::{ConfigProject, ResolvedProject},
+        project_type::ConfigProject,
     },
 };
 
@@ -46,6 +46,8 @@ pub enum ProjectSubcommand {
         filter_args: FilterArgs,
         #[clap(flatten)]
         sess_args: SessionArgs,
+        #[arg(short, long)]
+        existing: bool,
     },
     /// Open a scratch session. defaults: (name = scratch, path = $HOME)
     Scratch {
@@ -156,42 +158,48 @@ impl ProjectSubcommand {
                 proj_args,
                 filter_args,
                 sess_args,
+                existing,
             } => {
                 debug!(
                     "using [{:?}] projects file.",
                     proj_args.projects_config_path
                 );
-                let projects_directory_file = ResolvedProjectDirectory::new_filtered(
-                    &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
-                    &filter_args.tags,
-                )?;
-                let project = projects_directory_file.get_project()?;
-                sess_args.multiplexer.open(proj_args, project)?;
+                if *existing {
+                    println!("picking from existing");
+                    let sessions = sess_args.multiplexer.get_sessions()?;
+                    sess_args
+                        .multiplexer
+                        .open_existing(&fzf_pick_one(sessions)?)?;
+                } else {
+                    let projects_directory_file = ResolvedProjectDirectory::new_filtered(
+                        &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
+                        &filter_args.tags,
+                    )?;
+                    let project = projects_directory_file.get_project()?;
+                    sess_args
+                        .multiplexer
+                        .open(&project.path, &project.safe_name)?;
+                }
                 Ok(())
             }
             Self::Scratch {
-                proj_args,
+                proj_args: _,
                 sess_args,
                 name,
                 project_dir,
             } => {
                 sess_args.multiplexer.open(
-                    proj_args,
-                    ResolvedProject::new(
-                        &project_dir
-                            .clone()
-                            .unwrap_or(PathBuf::try_from(ConfigEnvKey::Home)?),
-                        name.clone().unwrap_or_else(|| "scratch".to_string()),
-                        "".to_owned(),
-                        BTreeSet::new(),
-                    ),
+                    &project_dir
+                        .clone()
+                        .unwrap_or(PathBuf::try_from(ConfigEnvKey::Home)?),
+                    &name.clone().unwrap_or_else(|| "scratch".to_string()),
                 )?;
                 Ok(())
             }
             Self::Kill { sess_args } => {
-                let sessions = sess_args.multiplexer.get_sessions();
+                let sessions = sess_args.multiplexer.get_sessions()?;
                 debug!("sessions: {sessions:?}");
-                let picked_sessions = fzf_get_sessions(sessions)?;
+                let picked_sessions = fzf_pick_many(sessions)?;
                 let current_session = sess_args.multiplexer.get_current_session();
                 debug!("current session: {current_session}");
                 sess_args
@@ -223,7 +231,7 @@ impl ProjectSubcommand {
                 }
                 debug!("Attempting to clone {ssh_uri}...");
                 let results =
-                    GitRepo::from_url_multi(&[&ssh_uri], &project_directory.projects_directory);
+                    GitRepo::from_url_multi(&[ssh_uri], &project_directory.projects_directory);
                 for result in results {
                     if let Err(err) = result {
                         error!("Failed cloning with: {err:?}");

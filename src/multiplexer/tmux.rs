@@ -7,44 +7,34 @@ use std::{
 };
 use tracing::{debug, error, info, instrument, warn};
 
-use crate::{
-    config::config_env::ConfigEnvKey,
-    error::AxlError,
-    helper::wrap_command,
-    project::{project_type::ResolvedProject, subcommand::ProjectArgs},
-};
+use crate::{config::config_env::ConfigEnvKey, error::AxlError, helper::wrap_command};
 
 pub struct Tmux;
 
 impl Tmux {
-    #[instrument(skip(_proj_args), err)]
-    pub fn open(_proj_args: &ProjectArgs, project: ResolvedProject) -> Result<()> {
+    #[instrument(err)]
+    pub fn open(path: &Path, name: &str) -> Result<()> {
         info!(
-            "Attempting to open Tmux session with project: {:?}!",
-            project,
+            "Attempting to open Tmux session with path: {:?}, name: {:?}!",
+            path, name,
         );
 
-        if !project.path.exists() {
-            return Err(AxlError::ProjectPathDoesNotExist(
-                project.path.to_string_lossy().to_string(),
-            )
-            .into());
+        if !path.exists() {
+            return Err(
+                AxlError::ProjectPathDoesNotExist(path.to_string_lossy().to_string()).into(),
+            );
         }
 
         if !Self::in_session() {
-            Self::create_new_attached_attach_if_exists(&project.safe_name, &project.path)?;
-        } else if Self::has_session(&project.safe_name) {
-            let safe_name = project.safe_name;
-            info!("Session '{safe_name}' already exists, opening.");
-            Self::switch(&safe_name)?;
+            Self::create_new_attached_attach_if_exists(name, path)?;
+        } else if Self::has_session(name) {
+            info!("Session '{name}' already exists, opening.");
+            Self::switch(name)?;
         } else {
-            let safe_name = project.safe_name;
-            info!("Session '{safe_name}' does not already exist, creating and opening.",);
+            info!("Session '{name}' does not already exist, creating and opening.",);
 
-            if Self::create_new_detached(&safe_name, &project.path)
-                .is_ok_and(|o| o.status.success())
-            {
-                Self::switch(&safe_name)?;
+            if Self::create_new_detached(name, path).is_ok_and(|o| o.status.success()) {
+                Self::switch(name)?;
             } else {
                 eprintln!("{}", "Session failed to open.".red().bold());
             }
@@ -53,18 +43,28 @@ impl Tmux {
         Ok(())
     }
 
+    #[instrument(err)]
+    pub fn open_existing(name: &str) -> Result<()> {
+        info!(
+            "Attempting to open existing Tmux session with name: {:?}!",
+            name,
+        );
+
+        Self::switch(name)?;
+
+        Ok(())
+    }
+
     #[instrument]
-    pub fn list_sessions() -> Vec<String> {
-        String::from_utf8_lossy(
-            &wrap_command(Command::new("tmux").arg("ls"))
-                .expect("tmux should be able to list sessions")
-                .stdout,
+    pub fn list_sessions() -> Result<Vec<String>> {
+        Ok(
+            String::from_utf8_lossy(&wrap_command(Command::new("tmux").arg("ls"))?.stdout)
+                .trim_end()
+                .split('\n')
+                .map(|s| s.split(':').collect::<Vec<_>>()[0].to_string())
+                .filter(|s| !s.is_empty())
+                .collect(),
         )
-        .trim_end()
-        .split('\n')
-        .map(|s| s.split(':').collect::<Vec<_>>()[0].to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
     }
 
     #[instrument]
