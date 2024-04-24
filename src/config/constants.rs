@@ -10,6 +10,7 @@ pub const XDG_DATA_HOME_DIR_KEY: &str = "XDG_DATA_HOME";
 pub const XDG_STATE_HOME_DIR_KEY: &str = "XDG_STATE_HOME";
 pub const DEFAULT_MULTIPLEXER_KEY: &str = "AXL_DEFAULT_MULTIPLEXER";
 pub const DEFAULT_PROJECTS_CONFIG_PATH_KEY: &str = "AXL_PROJECTS_CONFIG_PATH";
+pub const DEFAULT_DECORATIONS_KEY: &str = "AXL_DECORATIONS";
 
 // version string constants
 pub const PROJ_NAME: &str = env!("CARGO_PKG_NAME");
@@ -26,9 +27,9 @@ pub const fn version_str() -> &'static str {
     }
 }
 
-pub fn print_version_string(show_art: bool) {
+pub fn print_version_string() {
     eprintln!(
-        "{} {}{}{} {} {} {}\n{}",
+        "{} {}{}{} {} {} {}",
         "~=".custom_color(AxlColor::HotPink.into()),
         PROJ_NAME.custom_color(AxlColor::TiffanyBlue.into()),
         "@".custom_color(AxlColor::HotPink.into()),
@@ -36,20 +37,22 @@ pub fn print_version_string(show_art: bool) {
         "on".custom_color(AxlColor::HotPink.into()),
         OS_PLATFORM.custom_color(AxlColor::TiffanyBlue.into()),
         "=~".custom_color(AxlColor::HotPink.into()),
-        if show_art {
-            let mut colors = AxlColor::iter();
-            let rand_color_index = rand::thread_rng().gen_range(0..colors.len());
-            let rand_art_index = rand::thread_rng().gen_range(0..ASCII_ART.len());
-            ASCII_ART[rand_art_index].to_string().custom_color(
+    );
+}
+
+pub fn print_art() {
+    let mut colors = AxlColor::iter();
+    eprintln!(
+        "{}",
+        ASCII_ART[rand::thread_rng().gen_range(0..ASCII_ART.len())]
+            .to_string()
+            .custom_color(
                 colors
-                    .nth(rand_color_index)
+                    .nth(rand::thread_rng().gen_range(0..colors.len()))
                     .unwrap_or(AxlColor::TiffanyBlue)
                     .into(),
             )
-        } else {
-            "".normal()
-        },
-    );
+    )
 }
 
 #[derive(Debug, Serialize, Deserialize)]

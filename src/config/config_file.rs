@@ -1,10 +1,13 @@
 use anyhow::Result;
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
     path::{Path, PathBuf},
 };
-use tracing::{info, instrument};
+use tracing::{debug, instrument};
+
+use crate::config::config_env::ConfigEnvKey;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct AxlContext {
@@ -15,35 +18,24 @@ pub struct AxlContext {
 /// Command Line Flags Should Overtake File Values.
 /// How can I show that a config option is available
 /// in the config file and in the cli flags?
-#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 pub struct AxlConfig {
     pub general: GeneralConfig,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq, Eq)]
 pub struct GeneralConfig {
-    #[serde(default = "art_default")]
-    pub show_art: Option<bool>,
-    #[serde(default = "version_default")]
-    pub show_version: bool,
+    pub decoration: DecorationOption,
 }
 
-impl Default for GeneralConfig {
-    fn default() -> Self {
-        Self {
-            show_art: art_default(),
-            show_version: version_default(),
-        }
-    }
-}
-
-const fn art_default() -> Option<bool> {
-    // Set to false since most commands pull up a prompt immediately
-    None
-}
-
-const fn version_default() -> bool {
-    true
+#[derive(Serialize, Deserialize, Default, ValueEnum, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum DecorationOption {
+    None,
+    VersionBanner,
+    Art,
+    #[default]
+    All,
 }
 
 impl AxlConfig {
@@ -53,16 +45,14 @@ impl AxlConfig {
         let mut loaded_config = if !config_string.trim().is_empty() {
             serde_yaml::from_str(config_string)?
         } else {
-            let mut config = Self::default();
-            config.general.show_version = true;
-            config
+            Self::default()
         };
 
-        let env_show_art = std::env::var("AXL_SHOW_ART").map_or(None, |val| Some(val == "true"));
-        if env_show_art.is_some() {
-            loaded_config.general.show_art = env_show_art;
+        if let Ok(decoration_env) = DecorationOption::try_from(ConfigEnvKey::Decorations) {
+            loaded_config.general.decoration = decoration_env;
         }
-        info!("config: {:#?}", loaded_config);
+
+        debug!("config: {:#?}", loaded_config);
         Ok(loaded_config)
     }
 }
@@ -74,7 +64,7 @@ mod tests {
     use rstest::{fixture, rstest};
     use similar_asserts::assert_eq;
 
-    use crate::config::config_file::GeneralConfig;
+    use crate::config::config_file::{DecorationOption, GeneralConfig};
 
     use super::AxlConfig;
 
@@ -85,8 +75,7 @@ mod tests {
             .expect("test fixture tmp file can be created");
         file.write_str(
             "general:
-    show_art: true
-    show_version: false",
+    decoration: version-banner",
         )
         .expect("test fixture tmp file can be written to");
         file
@@ -112,8 +101,7 @@ mod tests {
             loaded_config,
             AxlConfig {
                 general: GeneralConfig {
-                    show_art: Some(true),
-                    show_version: false,
+                    decoration: DecorationOption::VersionBanner
                 }
             }
         );
@@ -131,8 +119,7 @@ mod tests {
             loaded_config,
             AxlConfig {
                 general: GeneralConfig {
-                    show_art: None,
-                    show_version: true
+                    decoration: DecorationOption::All
                 }
             }
         );

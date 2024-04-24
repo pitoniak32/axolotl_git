@@ -3,9 +3,12 @@ use std::{env, path::PathBuf};
 use thiserror::Error;
 use tracing::trace;
 
-use super::constants::{
-    DEFAULT_MULTIPLEXER_KEY, HOME_DIR_KEY, XDG_CONFIG_HOME_DIR_KEY, XDG_DATA_HOME_DIR_KEY,
-    XDG_STATE_HOME_DIR_KEY,
+use super::{
+    config_file::DecorationOption,
+    constants::{
+        DEFAULT_DECORATIONS_KEY, DEFAULT_MULTIPLEXER_KEY, HOME_DIR_KEY, XDG_CONFIG_HOME_DIR_KEY,
+        XDG_DATA_HOME_DIR_KEY, XDG_STATE_HOME_DIR_KEY,
+    },
 };
 
 pub enum ConfigEnvKey {
@@ -13,7 +16,8 @@ pub enum ConfigEnvKey {
     XDGConfigHome,
     XDGDataHome,
     XDGStateHome,
-    DefaultMultiplexerKey,
+    DefaultMultiplexer,
+    Decorations,
 }
 
 impl ConfigEnvKey {
@@ -23,7 +27,8 @@ impl ConfigEnvKey {
             Self::XDGConfigHome => XDG_CONFIG_HOME_DIR_KEY,
             Self::XDGDataHome => XDG_DATA_HOME_DIR_KEY,
             Self::XDGStateHome => XDG_STATE_HOME_DIR_KEY,
-            Self::DefaultMultiplexerKey => DEFAULT_MULTIPLEXER_KEY,
+            Self::DefaultMultiplexer => DEFAULT_MULTIPLEXER_KEY,
+            Self::Decorations => DEFAULT_DECORATIONS_KEY,
         }
     }
 
@@ -33,7 +38,8 @@ impl ConfigEnvKey {
             Self::XDGConfigHome => "",
             Self::XDGDataHome => "",
             Self::XDGStateHome => "",
-            Self::DefaultMultiplexerKey => "",
+            Self::DefaultMultiplexer => "",
+            Self::Decorations => "",
         }
     }
 }
@@ -77,8 +83,33 @@ impl TryFrom<ConfigEnvKey> for PathBuf {
     }
 }
 
+impl TryFrom<ConfigEnvKey> for DecorationOption {
+    type Error = ConfigError;
+    fn try_from(env_key: ConfigEnvKey) -> Result<Self, ConfigError> {
+        match env_key {
+            ConfigEnvKey::Decorations => {
+                let env_show_art = env::var(ConfigEnvKey::Decorations.as_str());
+                env_show_art.map_or_else(
+                    |_| {
+                        Err(ConfigError::NotFound(
+                            ConfigEnvKey::Decorations.as_str().to_string(),
+                        ))
+                    },
+                    |sa| {
+                        Ok(serde_json::from_str(&sa)
+                            .expect("should be provided a valid Decoration option"))
+                    },
+                )
+            }
+            _ => panic!("this key cannot be converted to DecorationOption. {DEFAULT_PANIC_MSG}"),
+        }
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[error("genertic")]
+    #[error("generic")]
     Generic,
+    #[error("env variable [{0}] not found")]
+    NotFound(String),
 }

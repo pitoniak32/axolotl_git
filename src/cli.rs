@@ -7,9 +7,10 @@ use anyhow::Result;
 use axl_lib::{
     config::{
         config_env::ConfigEnvKey,
-        config_file::{AxlConfig, AxlContext},
+        config_file::{AxlConfig, AxlContext, DecorationOption},
         constants::{
-            print_version_string, CliInfo, AXL_GIT_SHA_LONG, AXL_VERSION_STR, OS_PLATFORM,
+            print_art, print_version_string, CliInfo, AXL_GIT_SHA_LONG, AXL_VERSION_STR,
+            OS_PLATFORM,
         },
     },
     error::AxlError,
@@ -34,7 +35,7 @@ pub struct Cli {
     pub args: SharedArgs,
 
     #[clap(skip)]
-    context: AxlContext,
+    ctx: AxlContext,
 }
 
 impl Cli {
@@ -42,10 +43,26 @@ impl Cli {
     pub fn init(mut self) -> Result<Self> {
         debug!("cli_before_config_init: {self:#?}");
         self.set_config_path()?;
-        let axl_config: AxlConfig = AxlConfig::from_file(&self.context.config_path)?;
-        print_version_string(axl_config.general.show_art.is_some_and(|val| val));
-        self.context.config = axl_config;
+        let axl_config: AxlConfig = AxlConfig::from_file(&self.ctx.config_path)?;
+        self.ctx.config = axl_config;
+        if let Some(arg_decoration) = self.args.decoration.clone() {
+            self.ctx.config.general.decoration = arg_decoration;
+        }
         debug!("cli_after_config_init: {self:#?}");
+
+        match self.ctx.config.general.decoration {
+            DecorationOption::None => (),
+            DecorationOption::VersionBanner => {
+                print_version_string();
+            }
+            DecorationOption::Art => {
+                print_art();
+            }
+            DecorationOption::All => {
+                print_version_string();
+                print_art();
+            }
+        };
 
         Ok(self)
     }
@@ -63,7 +80,7 @@ impl Cli {
                     Err(AxlError::ConfigPathDoesNotExist)?
                 }
                 self.args.config_path = Some(curr.clone());
-                self.context.config_path = curr;
+                self.ctx.config_path = curr;
             }
         } else {
             let mut path = PathBuf::try_from(ConfigEnvKey::XDGConfigHome)?;
@@ -86,14 +103,14 @@ impl Cli {
                 }
             }
             self.args.config_path = Some(path.clone());
-            self.context.config_path.clone_from(&path);
+            self.ctx.config_path.clone_from(&path);
         }
         Ok(())
     }
 
     #[instrument(skip(self), fields(command.name = %self.command), err)]
     pub fn handle_command(&self) -> Result<()> {
-        Commands::handle(&self.command, &self.context, &self.args)?;
+        Commands::handle(&self.command, &self.ctx, &self.args)?;
         Ok(())
     }
 }
@@ -147,6 +164,10 @@ pub struct SharedArgs {
     /// Helpful for tmux popup prompts to see why a command failed.
     #[arg(short, long)]
     pub pause_on_error: bool,
+
+    /// Control what decorations are displayed.
+    #[arg(short, long, value_enum, default_value=None)]
+    pub decoration: Option<DecorationOption>,
 }
 
 #[derive(Debug)]
