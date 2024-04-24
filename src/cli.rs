@@ -13,7 +13,7 @@ use axl_lib::{
             OS_PLATFORM,
         },
     },
-    error::AxlError,
+    error::Error,
     helper::formatted_print,
     project::subcommand::{OutputFormat, ProjectSubcommand},
 };
@@ -77,7 +77,7 @@ impl Cli {
                         "\n{}\n",
                         "Provided config path does not exist.".red().bold()
                     );
-                    Err(AxlError::ConfigPathDoesNotExist)?
+                    Err(Error::ConfigPathDoesNotExist)?
                 }
                 self.args.config_path = Some(curr.clone());
                 self.ctx.config_path = curr;

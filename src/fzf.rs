@@ -7,12 +7,16 @@ use std::{
     process::{Command, Stdio},
 };
 use thiserror::Error;
-use tracing::instrument;
+use tracing::{debug, instrument};
 
 #[derive(Error, Debug)]
 pub enum FzfError {
     #[error("could not find any items to choose from")]
     NoItemsFound,
+    #[error("no item selected from options")]
+    NoItemSelected,
+    #[error("waiting on fzf command failed")]
+    CommandFailed(#[from] std::io::Error),
 }
 
 #[derive(Debug)]
@@ -53,7 +57,7 @@ impl FzfCmd {
     }
 
     #[instrument(skip(self))]
-    pub fn find_vec<T>(&mut self, input: Vec<T>) -> Result<String>
+    pub fn find_vec<T>(&mut self, input: Vec<T>) -> Result<String, FzfError>
     where
         T: Debug + Display,
     {
@@ -64,7 +68,7 @@ impl FzfCmd {
     }
 
     #[instrument(skip(self))]
-    pub fn find_string(&mut self, input: &str) -> Result<String> {
+    pub fn find_string(&mut self, input: &str) -> Result<String, FzfError> {
         let mut fzf_child = self
             .command
             .stdin(Stdio::piped())
@@ -89,10 +93,10 @@ impl FzfCmd {
         let output = fzf_child.wait_with_output()?;
 
         if output.status.success() {
-            return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(FzfError::NoItemSelected)
         }
-
-        Ok("".to_string())
     }
 
     #[instrument(err)]
@@ -102,13 +106,19 @@ impl FzfCmd {
             Err(FzfError::NoItemsFound)?
         }
 
-        Ok(Self::new()
+        debug!("pickable_items: {items:?}");
+
+        let picked_items = Self::new()
             .args(vec!["--phony", "--multi"])
             .find_vec(items)?
             .trim_end()
             .split('\n')
             .map(|s| s.to_string())
-            .collect())
+            .collect();
+
+        debug!("picked_items: {picked_items:?}");
+
+        Ok(picked_items)
     }
 
     #[instrument(err)]
@@ -139,8 +149,12 @@ impl FzfCmd {
             .trim_end()
             .split('\n')
             .map(|s| s.to_string())
-            .collect();
+            .filter(|n| !n.is_empty())
+            .collect::<Vec<String>>();
 
-        Ok(picked.first().expect("you must choose one item").clone())
+        match picked.first() {
+            Some(val) => Ok(val.clone()),
+            None => Err(FzfError::NoItemSelected)?,
+        }
     }
 }

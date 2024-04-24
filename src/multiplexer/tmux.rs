@@ -7,7 +7,7 @@ use std::{
 };
 use tracing::{debug, error, info, instrument, trace, warn};
 
-use crate::{config::config_env::ConfigEnvKey, error::AxlError, helper::wrap_command};
+use crate::{config::config_env::ConfigEnvKey, error::Error, helper::wrap_command};
 
 pub struct Tmux;
 
@@ -20,9 +20,7 @@ impl Tmux {
         );
 
         if !path.exists() {
-            return Err(
-                AxlError::ProjectPathDoesNotExist(path.to_string_lossy().to_string()).into(),
-            );
+            return Err(Error::ProjectPathDoesNotExist(path.to_string_lossy().to_string()).into());
         }
 
         if !Self::in_session() {

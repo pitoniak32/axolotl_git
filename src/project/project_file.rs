@@ -1,5 +1,4 @@
 use anyhow::Result;
-use colored::Colorize;
 use console::Style;
 use git_lib::git::Git;
 use inquire::Confirm;
@@ -10,13 +9,11 @@ use std::{
     fs::{self},
     path::{Path, PathBuf},
 };
-use tracing::{debug, instrument, trace, warn};
+use tracing::{instrument, trace, warn};
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{
-    error::AxlError, fzf::FzfCmd, helper::get_directories, project::group::ProjectGroupFile,
-};
+use crate::{error::Error, fzf::FzfCmd, helper::get_directories, project::group::ProjectGroupFile};
 
 use super::{
     group::GroupItem,
@@ -175,10 +172,7 @@ impl ResolvedProjectDirectory {
             .iter()
             .find(|p| p.name == project_name)
             .map_or_else(
-                || {
-                    eprintln!("{}", "No project was selected.".red().bold());
-                    Err(AxlError::NoProjectSelected)?
-                },
+                || Err(Error::NoProjectSelected)?,
                 |project| Ok(project.clone()),
             )
     }
@@ -190,15 +184,7 @@ impl ResolvedProjectDirectory {
             .map(|p| p.name.clone())
             .collect::<Vec<_>>();
 
-        let project_names_picked = FzfCmd::new()
-            .args(vec!["--phony", "--multi"])
-            .find_vec(project_names)?
-            .trim_end()
-            .split('\n')
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>();
-
-        debug!("picked_project_names: {project_names_picked:?}");
+        let project_names_picked = FzfCmd::pick_many(project_names)?;
 
         let projects = pickable_projects
             .into_iter()
@@ -206,8 +192,7 @@ impl ResolvedProjectDirectory {
             .collect::<Vec<_>>();
 
         if projects.is_empty() {
-            eprintln!("{}", "No projects were selected.".red().bold());
-            Err(AxlError::NoProjectSelected)?
+            Err(Error::NoProjectSelected)?
         }
 
         Ok(projects)
@@ -222,15 +207,7 @@ impl ResolvedProjectDirectory {
             .map(|p| p.remote.clone())
             .collect::<Vec<_>>();
 
-        let project_remotes_picked = FzfCmd::new()
-            .args(vec!["--phony", "--multi"])
-            .find_vec(project_remotes)?
-            .trim_end()
-            .split('\n')
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>();
-
-        debug!("picked_project_remotes: {project_remotes_picked:?}");
+        let project_remotes_picked = FzfCmd::pick_many(project_remotes)?;
 
         let projects = pickable_projects
             .into_iter()
@@ -238,8 +215,7 @@ impl ResolvedProjectDirectory {
             .collect::<Vec<_>>();
 
         if projects.is_empty() {
-            eprintln!("{}", "No projects were selected.".red().bold());
-            Err(AxlError::NoProjectSelected)?
+            Err(Error::NoProjectSelected)?
         }
 
         Ok(projects)
