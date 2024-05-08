@@ -89,6 +89,7 @@ pub enum ProjectSubcommand {
         sess_args: SessionArgs,
     },
     /// List all projects tracked in your config list.
+    #[clap(visible_alias = "ls")]
     List {
         #[clap(flatten)]
         proj_args: ProjectArgs,
