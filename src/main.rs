@@ -1,6 +1,5 @@
-use std::{env, process::exit};
-
 use anyhow::Result;
+use axl_lib::config::config_file::OnError;
 use clap::Parser;
 use cli::Cli;
 use colored::Colorize;
@@ -8,6 +7,8 @@ use inquire::Text;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
+use std::{env, process::exit, time::Duration};
+use tokio::time::sleep;
 use tracing::{error, info_span, metadata::LevelFilter};
 use tracing_log::AsTrace;
 use tracing_subscriber::{
@@ -47,8 +48,17 @@ async fn main() -> Result<()> {
                     let msg = format!("[CMD ERROR]: {err:?}");
                     error!(run.uuid = trace_uuid.to_string(), msg,);
                     eprintln!("{}", msg.red().bold());
-                    if cli.args.pause_on_error {
-                        Text::new("Press ENTER to continue...").prompt()?;
+                    match cli.args.on_error {
+                        OnError::None => {}
+                        OnError::Pause => {
+                            Text::new("Press ENTER to continue...").prompt()?;
+                        }
+                        OnError::ShortDelay => {
+                            sleep(Duration::from_millis(500)).await;
+                        }
+                        OnError::LongDelay => {
+                            sleep(Duration::from_millis(5000)).await;
+                        }
                     }
                     exit(1)
                 }

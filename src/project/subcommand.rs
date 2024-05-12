@@ -55,8 +55,8 @@ pub struct ScratchDirArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum ProjectSubcommand {
-    /// Open a session.
-    Open {
+    /// Open project session menu.
+    Menu {
         #[clap(flatten)]
         proj_args: ProjectArgs,
         #[clap(flatten)]
@@ -77,11 +77,6 @@ pub enum ProjectSubcommand {
         name: String,
         #[clap(flatten)]
         scratch_args: ScratchDirArgs,
-    },
-    /// Kill sessions.
-    Kill {
-        #[clap(flatten)]
-        sess_args: SessionArgs,
     },
     /// Open new unique session in $HOME and increment prefix (available: 0-9).
     Home {
@@ -171,7 +166,7 @@ impl ProjectSubcommand {
     #[instrument(skip(project_sub_cmd, _context), err)]
     pub fn handle_cmd(project_sub_cmd: &Self, _context: &AxlContext) -> anyhow::Result<()> {
         match project_sub_cmd {
-            Self::Open {
+            Self::Menu {
                 proj_args,
                 filter_args,
                 sess_args,
@@ -184,9 +179,11 @@ impl ProjectSubcommand {
                 if *existing {
                     trace!("picking from existing sessions...");
                     let sessions = sess_args.multiplexer.get_sessions()?;
-                    sess_args
-                        .multiplexer
-                        .open_existing(&FzfCmd::pick_one_filtered(sessions)?)?;
+                    sess_args.multiplexer.open_existing(
+                        &FzfCmd::new()
+                            .add_custom_keys(sess_args.multiplexer)?
+                            .pick_one_filtered(sessions)?,
+                    )?;
                 } else {
                     let projects_directory_file = ResolvedProjectDirectory::new_filtered(
                         &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
@@ -244,17 +241,6 @@ impl ProjectSubcommand {
                     )
                 };
                 sess_args.multiplexer.open(&dir, name)?;
-                Ok(())
-            }
-            Self::Kill { sess_args } => {
-                let sessions = sess_args.multiplexer.get_sessions()?;
-                debug!("sessions: {sessions:?}");
-                let picked_sessions = FzfCmd::pick_many(sessions)?;
-                let current_session = sess_args.multiplexer.get_current_session();
-                debug!("current session: {current_session}");
-                sess_args
-                    .multiplexer
-                    .kill_sessions(picked_sessions, &current_session)?;
                 Ok(())
             }
             Self::Home { sess_args } => sess_args.multiplexer.unique_session(),

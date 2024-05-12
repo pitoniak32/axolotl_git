@@ -5,6 +5,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+use strum::Display;
 use tracing::{debug, instrument};
 
 use crate::config::config_env::ConfigEnvKey;
@@ -28,7 +29,7 @@ pub struct GeneralConfig {
     pub decoration: DecorationOption,
 }
 
-#[derive(Serialize, Deserialize, Default, ValueEnum, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Default, ValueEnum, Debug, Clone, PartialEq, Eq, Display)]
 #[serde(rename_all = "kebab-case")]
 pub enum DecorationOption {
     None,
@@ -36,6 +37,20 @@ pub enum DecorationOption {
     Art,
     #[default]
     All,
+}
+
+#[derive(Serialize, Deserialize, Default, ValueEnum, Debug, Clone, PartialEq, Eq, Display)]
+#[serde(rename_all = "kebab-case")]
+pub enum OnError {
+    /// Just print error and continue.
+    #[default]
+    None,
+    /// Prompt user to press key to continue.
+    Pause,
+    /// 500 millisecond delay.
+    ShortDelay,
+    /// 5000 millisecond delay.
+    LongDelay,
 }
 
 impl AxlConfig {

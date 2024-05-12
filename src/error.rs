@@ -5,6 +5,9 @@ pub enum Error {
     #[error("could not find any sessions to choose from")]
     NoSessionsFound,
 
+    #[error("could not create a session")]
+    CouldNotCreateSession,
+
     #[error("no matching project was selected from the list, cannot proceed")]
     NoProjectSelected,
 

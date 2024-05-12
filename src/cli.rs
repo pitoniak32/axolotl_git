@@ -7,7 +7,7 @@ use anyhow::Result;
 use axl_lib::{
     config::{
         config_env::ConfigEnvKey,
-        config_file::{AxlConfig, AxlContext, DecorationOption},
+        config_file::{AxlConfig, AxlContext, DecorationOption, OnError},
         constants::{
             print_art, print_version_string, CliInfo, AXL_GIT_SHA_LONG, AXL_VERSION_STR,
             OS_PLATFORM,
@@ -15,7 +15,8 @@ use axl_lib::{
     },
     error::Error,
     helper::formatted_print,
-    project::subcommand::{OutputFormat, ProjectSubcommand},
+    multiplexer::Multiplexer,
+    project::subcommand::{OutputFormat, ProjectSubcommand, SessionArgs},
 };
 use clap::{Args, Parser, Subcommand};
 use clap_verbosity_flag::LogLevel;
@@ -45,9 +46,7 @@ impl Cli {
         self.set_config_path()?;
         let axl_config: AxlConfig = AxlConfig::from_file(&self.ctx.config_path)?;
         self.ctx.config = axl_config;
-        if let Some(arg_decoration) = self.args.decoration.clone() {
-            self.ctx.config.general.decoration = arg_decoration;
-        }
+        self.ctx.config.general.decoration = self.args.decoration.clone();
         debug!("cli_after_config_init: {self:#?}");
 
         match self.ctx.config.general.decoration {
@@ -117,12 +116,22 @@ impl Cli {
 
 #[derive(Subcommand, Debug, Display)]
 pub enum Commands {
-    #[clap(subcommand)]
+    #[clap(subcommand, visible_alias = "p")]
     /// Commands for managing projects.
     ///
     /// All commands are using the selected project directory.
     #[strum()]
     Project(ProjectSubcommand),
+
+    #[clap(visible_alias = "ls")]
+    /// Command to list sessions
+    ///
+    /// list your current multiplexer sessions.
+    #[strum()]
+    List {
+        #[clap(flatten)]
+        sess_args: SessionArgs,
+    },
 
     Info {
         #[arg(short, long, value_enum, default_value_t=OutputFormat::Json)]
@@ -136,6 +145,9 @@ impl Commands {
         match command {
             Self::Project(subcommand) => {
                 ProjectSubcommand::handle_cmd(subcommand, context)?;
+            }
+            Self::List { sess_args } => {
+                println!("{}", sess_args.multiplexer.get_sessions()?.join("\n"));
             }
             Self::Info { output } => {
                 let info = CliInfo {
@@ -159,15 +171,13 @@ pub struct SharedArgs {
     #[arg(short, long, env("AXL_CONFIG_PATH"))]
     config_path: Option<PathBuf>,
 
-    /// Should the cli require user input to dismiss errors?
-    ///
     /// Helpful for tmux popup prompts to see why a command failed.
-    #[arg(short, long)]
-    pub pause_on_error: bool,
+    #[arg(long, value_enum, default_value_t)]
+    pub on_error: OnError,
 
-    /// Control what decorations are displayed.
-    #[arg(short, long, value_enum, default_value=None)]
-    pub decoration: Option<DecorationOption>,
+    /// Control which decorations are displayed.
+    #[arg(long, value_enum, default_value_t)]
+    pub decoration: DecorationOption,
 }
 
 #[derive(Debug)]
