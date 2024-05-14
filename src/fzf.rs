@@ -40,6 +40,16 @@ impl FzfKeyBind {
         }
     }
 
+    fn new_silent(key: &str, cmd: &str, description: &str) -> Self {
+        Self {
+            key: key.to_string(),
+            cmd: cmd.to_string(),
+            silent: true,
+            reload_cmd: None,
+            description: description.to_string(),
+        }
+    }
+
     fn build_binds_and_headers(binds: Vec<Self>) -> (String, String) {
         binds.iter().fold(
             (String::new(), String::new()),
@@ -104,15 +114,18 @@ impl FzfCmd {
             FzfKeyBind::new_silent_reloaded(
                 "ctrl-k",
                 &multiplexer.kill_session_cmd("{}"),
-                &format!("{} ls --multiplexer={}", bin, multiplexer.as_arg()),
+                &format!(
+                    "{bin} ls --multiplexer={multiplexer}",
+                    bin = bin,
+                    multiplexer = multiplexer.as_arg()
+                ),
                 "kill session under cursor",
             ),
-            // TODO: make this multiplexer agnostic
-            FzfKeyBind::new_silent_reloaded(
+            // TODO: create the uri from the remote of the project.
+            FzfKeyBind::new_silent(
                 "ctrl-o",
-                &multiplexer.open_existing_cmd("{}"),
-                &format!("{} ls --multiplexer={}", bin, multiplexer.as_arg()),
-                "(or Enter) open session under cursor",
+                "open https://github.com/UKGEPIC/{}",
+                "open project in browser via remote",
             ),
         ]);
         trace!("binds: {bind_str}");
