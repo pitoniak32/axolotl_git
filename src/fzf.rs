@@ -124,7 +124,7 @@ impl FzfCmd {
             // TODO: create the uri from the remote of the project.
             FzfKeyBind::new_silent(
                 "ctrl-o",
-                "open https://github.com/UKGEPIC/{}",
+                &format!("{bin} project browse {{}}", bin = bin),
                 "open project in browser via remote",
             ),
         ]);

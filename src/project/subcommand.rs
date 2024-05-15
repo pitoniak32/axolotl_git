@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{collections::BTreeSet, path::PathBuf, process::Command};
 
 use clap::{arg, Args, Subcommand, ValueEnum};
 use colored::Colorize;
@@ -96,6 +96,16 @@ pub enum ProjectSubcommand {
         #[arg(long)]
         only: Option<OnlyOptions>,
     },
+    /// Open project by name in browser
+    ///
+    /// Builds https uri using remote from git. Shells out to `open` command.
+    Browse {
+        #[clap(flatten)]
+        proj_args: ProjectArgs,
+
+        #[arg()]
+        project_name: String,
+    },
     /// List all tags used on projects tracked in your config list.
     ListTags {
         #[clap(flatten)]
@@ -192,7 +202,7 @@ impl ProjectSubcommand {
                     let project = projects_directory_file.get_project()?;
                     sess_args
                         .multiplexer
-                        .open(&project.path, &project.safe_name)?;
+                        .open(&project.path, &project.get_safe_name())?;
                 }
                 Ok(())
             }
@@ -314,8 +324,8 @@ impl ProjectSubcommand {
                     .filter(|p| {
                         !projects_remotes
                             .iter()
-                            .map(|p_c| p_c.name.clone())
-                            .any(|x| x == p.name)
+                            .map(|p_c| p_c.get_name())
+                            .any(|x| x == p.get_name())
                     })
                     .collect::<Vec<_>>();
                 println!(
@@ -406,7 +416,10 @@ impl ProjectSubcommand {
                         OnlyOptions::Name => {
                             formatted_print(
                                 output,
-                                projects.into_iter().map(|p| p.name).collect::<Vec<_>>(),
+                                projects
+                                    .into_iter()
+                                    .map(|p| p.get_name())
+                                    .collect::<Vec<_>>(),
                             )?;
                         }
                         OnlyOptions::SafeName => {
@@ -414,7 +427,7 @@ impl ProjectSubcommand {
                                 output,
                                 projects
                                     .into_iter()
-                                    .map(|p| p.safe_name)
+                                    .map(|p| p.get_safe_name())
                                     .collect::<Vec<_>>(),
                             )?;
                         }
@@ -442,6 +455,26 @@ impl ProjectSubcommand {
                     },
                 );
                 formatted_print(output, tags)
+            }
+            Self::Browse {
+                proj_args,
+                project_name,
+            } => {
+                let project_directory = ResolvedProjectDirectory::new(
+                    &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
+                )?;
+                let project = project_directory
+                    .get_projects_from_remotes()?
+                    .into_iter()
+                    .find(|p| &p.get_name() == project_name);
+                if let Some(project) = project {
+                    let uri = project.get_repo_uri();
+                    #[cfg(target_os = "linux")]
+                    Command::new("xdg-open").arg(uri).output()?;
+                    #[cfg(target_os = "macos")]
+                    Command::new("open -g").arg(uri.clone()).output()?;
+                }
+                Ok(())
             }
         }
     }

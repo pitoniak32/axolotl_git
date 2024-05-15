@@ -16,4 +16,7 @@ pub enum Error {
 
     #[error("project path {0} does not exist")]
     ProjectPathDoesNotExist(String),
+
+    #[error("provided remote failed to be parsed")]
+    ProjectRemoteNotParsable,
 }
