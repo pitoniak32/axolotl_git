@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{collections::BTreeSet, path::PathBuf, process::Command};
 
 use clap::{arg, Args, Subcommand, ValueEnum};
 use colored::Colorize;
@@ -55,8 +55,8 @@ pub struct ScratchDirArgs {
 
 #[derive(Subcommand, Debug)]
 pub enum ProjectSubcommand {
-    /// Open a session.
-    Open {
+    /// Open project session menu.
+    Menu {
         #[clap(flatten)]
         proj_args: ProjectArgs,
         #[clap(flatten)]
@@ -78,11 +78,6 @@ pub enum ProjectSubcommand {
         #[clap(flatten)]
         scratch_args: ScratchDirArgs,
     },
-    /// Kill sessions.
-    Kill {
-        #[clap(flatten)]
-        sess_args: SessionArgs,
-    },
     /// Open new unique session in $HOME and increment prefix (available: 0-9).
     Home {
         #[clap(flatten)]
@@ -100,6 +95,16 @@ pub enum ProjectSubcommand {
         /// Only show specific field value.
         #[arg(long)]
         only: Option<OnlyOptions>,
+    },
+    /// Open project by name in browser
+    ///
+    /// Builds https uri using remote from git. Shells out to `open` command.
+    Browse {
+        #[clap(flatten)]
+        proj_args: ProjectArgs,
+
+        #[arg()]
+        project_name: String,
     },
     /// List all tags used on projects tracked in your config list.
     ListTags {
@@ -171,7 +176,7 @@ impl ProjectSubcommand {
     #[instrument(skip(project_sub_cmd, _context), err)]
     pub fn handle_cmd(project_sub_cmd: &Self, _context: &AxlContext) -> anyhow::Result<()> {
         match project_sub_cmd {
-            Self::Open {
+            Self::Menu {
                 proj_args,
                 filter_args,
                 sess_args,
@@ -184,9 +189,11 @@ impl ProjectSubcommand {
                 if *existing {
                     trace!("picking from existing sessions...");
                     let sessions = sess_args.multiplexer.get_sessions()?;
-                    sess_args
-                        .multiplexer
-                        .open_existing(&FzfCmd::pick_one_filtered(sessions)?)?;
+                    sess_args.multiplexer.open_existing(
+                        &FzfCmd::new()
+                            .add_custom_keys(sess_args.multiplexer)?
+                            .pick_one_filtered(sessions)?,
+                    )?;
                 } else {
                     let projects_directory_file = ResolvedProjectDirectory::new_filtered(
                         &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
@@ -195,7 +202,7 @@ impl ProjectSubcommand {
                     let project = projects_directory_file.get_project()?;
                     sess_args
                         .multiplexer
-                        .open(&project.path, &project.safe_name)?;
+                        .open(&project.path, &project.get_safe_name())?;
                 }
                 Ok(())
             }
@@ -244,17 +251,6 @@ impl ProjectSubcommand {
                     )
                 };
                 sess_args.multiplexer.open(&dir, name)?;
-                Ok(())
-            }
-            Self::Kill { sess_args } => {
-                let sessions = sess_args.multiplexer.get_sessions()?;
-                debug!("sessions: {sessions:?}");
-                let picked_sessions = FzfCmd::pick_many(sessions)?;
-                let current_session = sess_args.multiplexer.get_current_session();
-                debug!("current session: {current_session}");
-                sess_args
-                    .multiplexer
-                    .kill_sessions(picked_sessions, &current_session)?;
                 Ok(())
             }
             Self::Home { sess_args } => sess_args.multiplexer.unique_session(),
@@ -328,8 +324,8 @@ impl ProjectSubcommand {
                     .filter(|p| {
                         !projects_remotes
                             .iter()
-                            .map(|p_c| p_c.name.clone())
-                            .any(|x| x == p.name)
+                            .map(|p_c| p_c.get_name())
+                            .any(|x| x == p.get_name())
                     })
                     .collect::<Vec<_>>();
                 println!(
@@ -420,7 +416,10 @@ impl ProjectSubcommand {
                         OnlyOptions::Name => {
                             formatted_print(
                                 output,
-                                projects.into_iter().map(|p| p.name).collect::<Vec<_>>(),
+                                projects
+                                    .into_iter()
+                                    .map(|p| p.get_name())
+                                    .collect::<Vec<_>>(),
                             )?;
                         }
                         OnlyOptions::SafeName => {
@@ -428,7 +427,7 @@ impl ProjectSubcommand {
                                 output,
                                 projects
                                     .into_iter()
-                                    .map(|p| p.safe_name)
+                                    .map(|p| p.get_safe_name())
                                     .collect::<Vec<_>>(),
                             )?;
                         }
@@ -456,6 +455,26 @@ impl ProjectSubcommand {
                     },
                 );
                 formatted_print(output, tags)
+            }
+            Self::Browse {
+                proj_args,
+                project_name,
+            } => {
+                let project_directory = ResolvedProjectDirectory::new(
+                    &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
+                )?;
+                let project = project_directory
+                    .get_projects_from_remotes()?
+                    .into_iter()
+                    .find(|p| &p.get_name() == project_name);
+                if let Some(project) = project {
+                    let uri = project.get_repo_uri();
+                    #[cfg(target_os = "linux")]
+                    Command::new("xdg-open").arg(uri).output()?;
+                    #[cfg(target_os = "macos")]
+                    Command::new("open -g").arg(uri.clone()).output()?;
+                }
+                Ok(())
             }
         }
     }

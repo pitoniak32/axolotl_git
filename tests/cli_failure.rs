@@ -11,7 +11,7 @@ use predicates::prelude::predicate;
 #[case::no_cmd_no_flag(vec![], vec![], "Usage: axl [OPTIONS] <COMMAND>")]
 #[case::no_cmd_with_flag(vec!["-v"], vec![], "error: 'axl' requires a subcommand but one was not provided")]
 #[case::project_cmd_no_sub_cmd(vec!["project"], vec![], "Usage: axl project [OPTIONS] <COMMAND>")]
-#[case::project_cmd_open_sub_cmd(vec!["project", "open"], vec![("AXL_PROJECTS_CONFIG_PATH", "/test/file/path.yml")], "Usage: axl project open --projects-config-path <PROJECTS_CONFIG_PATH> --multiplexer <MULTIPLEXER>")]
+#[case::project_cmd_open_sub_cmd(vec!["project", "menu"], vec![("AXL_PROJECTS_CONFIG_PATH", "/test/file/path.yml")], "Usage: axl project menu --projects-config-path <PROJECTS_CONFIG_PATH> --multiplexer <MULTIPLEXER>")]
 fn axl_project_no_args(
     #[case] args: Vec<&str>,
     #[case] envs: Vec<(&str, &str)>,

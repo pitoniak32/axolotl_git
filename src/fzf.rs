@@ -1,3 +1,4 @@
+use crate::multiplexer::{Multiplexer, Multiplexers};
 use anyhow::Result;
 use colored::Colorize;
 use std::{
@@ -7,7 +8,7 @@ use std::{
     process::{Command, Stdio},
 };
 use thiserror::Error;
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, trace};
 
 #[derive(Error, Debug)]
 pub enum FzfError {
@@ -17,6 +18,73 @@ pub enum FzfError {
     NoItemSelected,
     #[error("waiting on fzf command failed")]
     CommandFailed(#[from] std::io::Error),
+}
+
+#[derive(Debug)]
+struct FzfKeyBind {
+    key: String,
+    cmd: String,
+    silent: bool,
+    reload_cmd: Option<String>,
+    description: String,
+}
+
+impl FzfKeyBind {
+    fn new_silent_reloaded(key: &str, cmd: &str, reload: &str, description: &str) -> Self {
+        Self {
+            key: key.to_string(),
+            cmd: cmd.to_string(),
+            silent: true,
+            reload_cmd: Some(reload.to_string()),
+            description: description.to_string(),
+        }
+    }
+
+    fn new_silent(key: &str, cmd: &str, description: &str) -> Self {
+        Self {
+            key: key.to_string(),
+            cmd: cmd.to_string(),
+            silent: true,
+            reload_cmd: None,
+            description: description.to_string(),
+        }
+    }
+
+    fn build_binds_and_headers(binds: Vec<Self>) -> (String, String) {
+        binds.iter().fold(
+            (String::new(), String::new()),
+            |(mut acc_cmd, mut acc_hdr), bind| {
+                acc_cmd = format!(
+                    "{}:execute{silent}({cmd}){reload}{acc}",
+                    bind.key,
+                    silent = if bind.silent { "-silent" } else { "" },
+                    cmd = bind.cmd,
+                    reload = bind.reload_cmd.clone().map_or_else(
+                        || "".to_string(),
+                        |reload_cmd| format!("+reload({reload_cmd})")
+                    ),
+                    acc = if acc_cmd.is_empty() {
+                        "".to_string()
+                    } else {
+                        format!(",{}", acc_cmd)
+                    },
+                );
+
+                acc_hdr = format!(
+                    "{key}: {desc}{acc}",
+                    key = bind.key,
+                    desc = bind.description,
+                    acc = if acc_hdr.is_empty() {
+                        "".to_string()
+                    } else {
+                        format!(", {}", acc_hdr)
+                    }
+                );
+
+                (acc_cmd, acc_hdr)
+            },
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -37,7 +105,39 @@ impl FzfCmd {
         }
     }
 
-    #[instrument(skip(self))]
+    pub fn add_custom_keys(&mut self, multiplexer: Multiplexers) -> Result<&mut Self> {
+        let bin = std::env::current_exe()
+            .expect("the current executable path to be available")
+            .to_string_lossy()
+            .to_string();
+        let (bind_str, header_str) = FzfKeyBind::build_binds_and_headers(vec![
+            FzfKeyBind::new_silent_reloaded(
+                "ctrl-k",
+                &multiplexer.kill_session_cmd("{}"),
+                &format!(
+                    "{bin} ls --multiplexer={multiplexer}",
+                    bin = bin,
+                    multiplexer = multiplexer.as_arg()
+                ),
+                "kill session under cursor",
+            ),
+            // TODO: create the uri from the remote of the project.
+            FzfKeyBind::new_silent(
+                "ctrl-o",
+                &format!("{bin} project browse {{}}", bin = bin),
+                "open project in browser via remote",
+            ),
+        ]);
+        trace!("binds: {bind_str}");
+        self.command
+            .arg("--bind")
+            .arg(bind_str) // TODO: reload the sessions from axl
+            .arg("--header")
+            .arg(format!("[{}]", header_str));
+
+        Ok(self)
+    }
+
     pub fn arg<S>(&mut self, arg: S) -> &mut Self
     where
         S: AsRef<OsStr> + Debug,
@@ -46,7 +146,6 @@ impl FzfCmd {
         self
     }
 
-    #[instrument(skip(self))]
     pub fn args<I, S>(&mut self, args: I) -> &mut Self
     where
         I: IntoIterator<Item = S> + Debug,
@@ -138,13 +237,13 @@ impl FzfCmd {
     }
 
     #[instrument(err)]
-    pub fn pick_one_filtered(items: Vec<String>) -> Result<String> {
+    pub fn pick_one_filtered(&mut self, items: Vec<String>) -> Result<String> {
         if items.is_empty() {
             eprintln!("\n{}\n", "No items found to choose from.".blue().bold());
             Err(FzfError::NoItemsFound)?
         }
 
-        let picked: Vec<_> = Self::new()
+        let picked: Vec<_> = self
             .find_vec(items)?
             .trim_end()
             .split('\n')

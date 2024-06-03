@@ -9,9 +9,54 @@ use tracing::{debug, error, info, instrument, trace, warn};
 
 use crate::{config::config_env::ConfigEnvKey, error::Error, helper::wrap_command};
 
-pub struct Tmux;
+pub struct TmuxCmd {
+    pub cmd: String,
+    pub args: Vec<String>,
+}
 
-impl Tmux {
+impl TmuxCmd {
+    fn run(self) -> Result<Output> {
+        wrap_command(Command::new(Self::CMD).arg(self.cmd).args(self.args))
+    }
+
+    pub fn into_string(&self) -> String {
+        format!(
+            "{:?}",
+            Command::new(Self::CMD)
+                .arg(self.cmd.clone())
+                .args(self.args.clone())
+        )
+        .replace('"', "")
+    }
+}
+
+impl TmuxCmd {
+    const CMD: &'static str = "tmux";
+
+    pub fn open_cmd(path: &Path, name: &str) -> Result<Self, Error> {
+        if !path.exists() {
+            return Err(Error::ProjectPathDoesNotExist(
+                path.to_string_lossy().to_string(),
+            ));
+        }
+
+        if !Self::in_session() {
+            Ok(Self::create_new_attached_attach_if_exists_cmd(name, path))
+        } else if Self::has_session(name) {
+            info!("Session '{name}' already exists, opening.");
+            Ok(Self::switch_cmd(name))
+        } else {
+            info!("Session '{name}' does not already exist, creating and opening.",);
+
+            if Self::create_new_detached(name, path).is_ok_and(|o| o.status.success()) {
+                Ok(Self::switch_cmd(name))
+            } else {
+                eprintln!("{}", "Session failed to open.".red().bold());
+                Err(Error::CouldNotCreateSession)
+            }
+        }
+    }
+
     #[instrument(err)]
     pub fn open(path: &Path, name: &str) -> Result<()> {
         info!(
@@ -19,24 +64,7 @@ impl Tmux {
             path, name,
         );
 
-        if !path.exists() {
-            return Err(Error::ProjectPathDoesNotExist(path.to_string_lossy().to_string()).into());
-        }
-
-        if !Self::in_session() {
-            Self::create_new_attached_attach_if_exists(name, path)?;
-        } else if Self::has_session(name) {
-            info!("Session '{name}' already exists, opening.");
-            Self::switch(name)?;
-        } else {
-            info!("Session '{name}' does not already exist, creating and opening.",);
-
-            if Self::create_new_detached(name, path).is_ok_and(|o| o.status.success()) {
-                Self::switch(name)?;
-            } else {
-                eprintln!("{}", "Session failed to open.".red().bold());
-            }
-        }
+        Self::open_cmd(path, name)?.run()?;
 
         Ok(())
     }
@@ -53,7 +81,7 @@ impl Tmux {
             Self::attach()?;
         }
 
-        Self::switch(name)?;
+        Self::switch_cmd(name).run()?;
 
         Ok(())
     }
@@ -139,42 +167,67 @@ impl Tmux {
     }
 }
 
-impl Tmux {
+impl TmuxCmd {
+    pub fn create_new_detached_attach_if_exists_cmd(name: &str, path: &Path) -> Self {
+        Self {
+            cmd: "new-session".to_string(),
+            args: vec![
+                "-Ad".to_string(),
+                "-s".to_string(),
+                name.to_string(),
+                "-c".to_string(),
+                path.to_str().unwrap_or_default().to_string(),
+            ],
+        }
+    }
+
     #[allow(dead_code)] // This will likely be needed eventually.
     #[instrument(err)]
     fn create_new_detached_attach_if_exists(name: &str, path: &Path) -> Result<Output> {
-        wrap_command(Command::new("tmux").args([
-            "new-session",
-            "-Ad",
-            "-s",
-            name,
-            "-c",
-            path.to_str().unwrap_or_default(),
-        ]))
+        Self::create_new_detached_attach_if_exists_cmd(name, path).run()
+    }
+
+    pub fn create_new_attached_attach_if_exists_cmd(name: &str, path: &Path) -> Self {
+        Self {
+            cmd: "new-session".to_string(),
+            args: vec![
+                "-A".to_string(),
+                "-s".to_string(),
+                name.to_string(),
+                "-c".to_string(),
+                path.to_str().unwrap_or_default().to_string(),
+            ],
+        }
     }
 
     #[instrument(err)]
     fn create_new_attached_attach_if_exists(name: &str, path: &Path) -> Result<Output> {
-        wrap_command(Command::new("tmux").args([
-            "new-session",
-            "-A",
-            "-s",
-            name,
-            "-c",
-            path.to_str().unwrap_or_default(),
-        ]))
+        Self::create_new_attached_attach_if_exists_cmd(name, path).run()
+    }
+
+    pub fn create_new_detached_cmd(name: &str, path: &Path) -> Self {
+        Self {
+            cmd: "new-session".to_string(),
+            args: vec![
+                "-d".to_string(),
+                "-s".to_string(),
+                name.to_string(),
+                "-c".to_string(),
+                path.to_str().unwrap_or_default().to_string(),
+            ],
+        }
     }
 
     #[instrument(err)]
     fn create_new_detached(name: &str, path: &Path) -> Result<Output> {
-        wrap_command(Command::new("tmux").args([
-            "new-session",
-            "-d",
-            "-s",
-            name,
-            "-c",
-            path.to_str().unwrap_or_default(),
-        ]))
+        Self::create_new_detached_cmd(name, path).run()
+    }
+
+    pub fn switch_cmd(to_name: &str) -> Self {
+        Self {
+            cmd: "switch-client".to_string(),
+            args: vec!["-t".to_string(), to_name.to_string()],
+        }
     }
 
     #[instrument(err)]
@@ -182,29 +235,43 @@ impl Tmux {
         wrap_command(Command::new("tmux").args(["switch-client", "-t", to_name]))
     }
 
+    pub fn attach_cmd() -> Self {
+        Self {
+            cmd: "attach".to_string(),
+            args: vec![],
+        }
+    }
+
     #[instrument(err)]
     fn attach() -> Result<Output> {
-        wrap_command(Command::new("tmux").args(["attach"]))
+        Self::attach_cmd().run()
+    }
+
+    #[instrument]
+    pub fn has_session_cmd(project_name: &str) -> Self {
+        Self {
+            cmd: "has-session".to_string(),
+            args: vec!["-t".to_string(), format!("={}", project_name)],
+        }
     }
 
     #[instrument]
     fn has_session(project_name: &str) -> bool {
-        let output = wrap_command(Command::new("tmux").args([
-            "has-session",
-            "-t",
-            &format!("={}", project_name),
-        ]));
+        let output = Self::has_session_cmd(project_name).run();
 
         output.is_ok_and(|o| o.status.success())
     }
 
+    pub fn kill_session_cmd(session_name: &str) -> Self {
+        Self {
+            cmd: "kill-session".to_string(),
+            args: vec!["-t".to_string(), format!("{}", session_name)],
+        }
+    }
+
     #[instrument(err)]
     fn kill_session(project_name: &str) -> Result<()> {
-        wrap_command(Command::new("tmux").args([
-            "kill-session",
-            "-t",
-            &format!("={}", project_name),
-        ]))?;
+        Self::kill_session_cmd(project_name).run()?;
         Ok(())
     }
 

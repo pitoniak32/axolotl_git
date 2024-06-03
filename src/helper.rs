@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::Result;
-use tracing::{info, instrument, warn};
+use tracing::{instrument, trace, warn};
 
 use crate::project::subcommand::OutputFormat;
 
@@ -19,7 +19,7 @@ pub fn wrap_command(command: &mut Command) -> Result<Output> {
 
     // Use log crate to allow verbosity flag to control wrapped command logs.
     if output.status.success() && !output.stdout.is_empty() {
-        info!("{}", String::from_utf8_lossy(&output.stdout).trim());
+        trace!("{}", String::from_utf8_lossy(&output.stdout).trim());
     } else if !output.stderr.is_empty() {
         warn!("{}", String::from_utf8_lossy(&output.stderr).trim());
     }

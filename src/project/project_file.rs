@@ -120,13 +120,9 @@ impl ResolvedProjectDirectory {
             .map(|project_config_type| {
                 Ok(ResolvedProject::new(
                     &self.projects_directory,
-                    project_config_type
-                        .name
-                        .clone()
-                        .unwrap_or(Git::parse_url(&project_config_type.remote)?.name),
                     project_config_type.remote.to_string(),
                     project_config_type.tags.clone(),
-                ))
+                )?)
             })
             .collect::<Result<Vec<ResolvedProject>>>()
     }
@@ -145,17 +141,7 @@ impl ResolvedProjectDirectory {
                             ignored.push(d.clone());
                             None
                         },
-                        |remote| {
-                            Some(ResolvedProject::new(
-                                path,
-                                d.file_name()
-                                    .expect("file_name should be representable as a String")
-                                    .to_string_lossy()
-                                    .to_string(),
-                                remote,
-                                BTreeSet::new(),
-                            ))
-                        },
+                        |remote| ResolvedProject::new(path, remote, BTreeSet::new()).ok(),
                     )
             })
             .collect();
@@ -164,13 +150,13 @@ impl ResolvedProjectDirectory {
 
     #[instrument(err)]
     pub fn pick_project(projects: Vec<ResolvedProject>) -> Result<ResolvedProject> {
-        let project_names = projects.iter().map(|p| p.name.clone()).collect::<Vec<_>>();
+        let project_names = projects.iter().map(|p| p.get_name()).collect::<Vec<_>>();
 
         let project_name = FzfCmd::new().find_vec(project_names)?;
 
         projects
             .iter()
-            .find(|p| p.name == project_name)
+            .find(|p| p.get_name() == project_name)
             .map_or_else(
                 || Err(Error::NoProjectSelected)?,
                 |project| Ok(project.clone()),
@@ -181,14 +167,14 @@ impl ResolvedProjectDirectory {
     pub fn pick_projects(pickable_projects: Vec<ResolvedProject>) -> Result<Vec<ResolvedProject>> {
         let project_names = pickable_projects
             .iter()
-            .map(|p| p.name.clone())
+            .map(|p| p.get_name())
             .collect::<Vec<_>>();
 
         let project_names_picked = FzfCmd::pick_many(project_names)?;
 
         let projects = pickable_projects
             .into_iter()
-            .filter(|p| project_names_picked.contains(&p.name))
+            .filter(|p| project_names_picked.contains(&p.get_name()))
             .collect::<Vec<_>>();
 
         if projects.is_empty() {
@@ -313,21 +299,21 @@ include:
 
     #[fixture]
     fn projects_vec_len_2() -> Vec<ResolvedProject> {
+        let remote1 = "git@github.com:user/test1.git".to_string();
+        let remote2 = "git@github.com:user/test2.git".to_string();
         vec![
             ResolvedProject {
-                name: "test1".to_string(),
-                safe_name: "test1".to_string(),
+                git_uri: Git::parse_uri(&remote1).expect("to be valid uri"),
                 project_folder_path: "/test/projects/dir/".into(),
                 path: "/test/projects/dir/test1".into(),
-                remote: "git@github.com:user/test1.git".to_string(),
+                remote: remote1,
                 tags: BTreeSet::from_iter(vec!["test1".to_string()]),
             },
             ResolvedProject {
-                name: "test2".to_string(),
-                safe_name: "test2".to_string(),
+                git_uri: Git::parse_uri(&remote2).expect("to be valid uri"),
                 project_folder_path: "/test/projects/dir/".into(),
                 path: "/test/projects/dir/test2".into(),
-                remote: "git@github.com:user/test2.git".to_string(),
+                remote: remote2,
                 tags: BTreeSet::new(),
             },
         ]
@@ -421,6 +407,10 @@ include:
         let project_directory =
             ResolvedProjectDirectory::new(&ConfigProjectDirectory::new(test_dir.1.path())?)?;
 
+        let remote1 = "git@github.com:user/test1.git".to_string();
+        let remote2 = "git@github.com:user/test2.git".to_string();
+        let remote3 = "git@github.com:user/test3.git".to_string();
+
         // Act
         let projects = project_directory.get_projects_from_remotes()?;
 
@@ -429,27 +419,24 @@ include:
             projects,
             vec![
                 ResolvedProject {
-                    name: "test3".to_string(),
-                    safe_name: "test3".to_string(),
                     project_folder_path: "/test/projects/dir".into(),
+                    git_uri: Git::parse_uri(&remote3).expect("valid remote"),
                     path: "/test/projects/dir/test3".into(),
-                    remote: "git@github.com:user/test3.git".to_string(),
+                    remote: remote3,
                     tags: BTreeSet::from_iter(vec!["grouped".to_string(), "test3".to_string()]),
                 },
                 ResolvedProject {
-                    name: "test1".to_string(),
-                    safe_name: "test1".to_string(),
                     project_folder_path: "/test/projects/dir".into(),
+                    git_uri: Git::parse_uri(&remote1).expect("valid remote"),
                     path: "/test/projects/dir/test1".into(),
-                    remote: "git@github.com:user/test1.git".to_string(),
+                    remote: remote1,
                     tags: BTreeSet::from_iter(vec!["tester_repo".to_string(), "prod".to_string()]),
                 },
                 ResolvedProject {
-                    name: "test2_rename".to_string(),
-                    safe_name: "test2_rename".to_string(),
                     project_folder_path: "/test/projects/dir".into(),
+                    git_uri: Git::parse_uri(&remote2).expect("valid remote"),
                     path: "/test/projects/dir/test2_rename".into(),
-                    remote: "git@github.com:user/test2.git".to_string(),
+                    remote: remote2,
                     tags: BTreeSet::from_iter(vec!["grouped".to_string()]),
                 },
             ]
@@ -467,6 +454,7 @@ include:
             &ConfigProjectDirectory::new(test_dir.1.path())?,
             &vec!["prod".to_string()],
         )?;
+        let remote1 = "git@github.com:user/test1.git".to_string();
 
         // Act
         let projects = project_directory.get_projects_from_remotes()?;
@@ -475,11 +463,10 @@ include:
         assert_eq!(
             projects,
             vec![ResolvedProject {
-                name: "test1".to_string(),
-                safe_name: "test1".to_string(),
                 project_folder_path: "/test/projects/dir".into(),
+                git_uri: Git::parse_uri(&remote1).expect("valid remote"),
                 path: "/test/projects/dir/test1".into(),
-                remote: "git@github.com:user/test1.git".to_string(),
+                remote: remote1,
                 tags: BTreeSet::from_iter(vec!["tester_repo".to_string(), "prod".to_string()]),
             },]
         );
@@ -491,25 +478,27 @@ include:
     fn should_read_projects_from_fs(
         #[from(projects_directory_fs)] test_dir: TempDir,
     ) -> Result<()> {
+        // Arrange
+        let remote1 = "git@github.com:test_user/test_repo1.git".to_string();
+        let remote2 = "git@github.com:test_user/test_repo2.git".to_string();
+
         // Act
         let projects_dir_path = test_dir.path().join("projects");
         let projects = ResolvedProjectDirectory::get_projects_from_fs(&projects_dir_path)?;
 
         assert_eq!(projects.0.len(), 2);
         assert!(projects.0.contains(&ResolvedProject {
-            name: "test_repo1".to_string(),
-            safe_name: "test_repo1".to_string(),
             project_folder_path: projects_dir_path.clone(),
+            git_uri: Git::parse_uri(&remote1).expect("valid remote"),
             path: projects_dir_path.join("test_repo1"),
-            remote: "git@github.com:test_user/test_repo1.git".to_string(),
+            remote: remote1,
             tags: BTreeSet::new(),
         },),);
         assert!(projects.0.contains(&ResolvedProject {
-            name: "test_repo2".to_string(),
-            safe_name: "test_repo2".to_string(),
             project_folder_path: projects_dir_path.clone(),
+            git_uri: Git::parse_uri(&remote2).expect("valid remote"),
             path: projects_dir_path.join("test_repo2"),
-            remote: "git@github.com:test_user/test_repo2.git".to_string(),
+            remote: remote2,
             tags: BTreeSet::new(),
         }));
         assert_eq!(
