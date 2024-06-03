@@ -120,7 +120,7 @@ impl ResolvedProjectDirectory {
             .map(|project_config_type| {
                 Ok(ResolvedProject::new(
                     &self.projects_directory,
-                    project_config_type.remote.to_string(),
+                    &project_config_type.remote,
                     project_config_type.tags.clone(),
                 )?)
             })
@@ -141,7 +141,7 @@ impl ResolvedProjectDirectory {
                             ignored.push(d.clone());
                             None
                         },
-                        |remote| ResolvedProject::new(path, remote, BTreeSet::new()).ok(),
+                        |remote| ResolvedProject::new(path, &remote, BTreeSet::new()).ok(),
                     )
             })
             .collect();
@@ -207,7 +207,7 @@ impl ResolvedProjectDirectory {
         Ok(projects)
     }
 
-    pub fn add_config_projects(&mut self, projects: Vec<ConfigProject>) -> Result<()> {
+    pub fn add_config_projects(&self, projects: Vec<ConfigProject>) -> Result<()> {
         let mut config_project_directory = ConfigProjectDirectory::new(&self.resolved_from_path)?;
         let before = serde_yaml::to_string(&config_project_directory.resolve_projects()?)?;
         config_project_directory.add_config_projects(projects)?;
@@ -435,7 +435,7 @@ include:
                 ResolvedProject {
                     project_folder_path: "/test/projects/dir".into(),
                     git_uri: Git::parse_uri(&remote2).expect("valid remote"),
-                    path: "/test/projects/dir/test2_rename".into(),
+                    path: "/test/projects/dir/test2".into(),
                     remote: remote2,
                     tags: BTreeSet::from_iter(vec!["grouped".to_string()]),
                 },
