@@ -34,6 +34,7 @@ impl TmuxCmd {
     const CMD: &'static str = "tmux";
 
     pub fn open_cmd(path: &Path, name: &str) -> Result<Self, Error> {
+        let name = &Self::clean_name(name);
         if !path.exists() {
             return Err(Error::ProjectPathDoesNotExist(
                 path.to_string_lossy().to_string(),
@@ -58,7 +59,8 @@ impl TmuxCmd {
     }
 
     #[instrument(err)]
-    pub fn open(path: &Path, name: &str) -> Result<()> {
+    pub fn open_new(path: &Path, name: &str) -> Result<()> {
+        let name = &Self::clean_name(name);
         info!(
             "Attempting to open Tmux session with path: {:?}, name: {:?}!",
             path, name,
@@ -71,6 +73,7 @@ impl TmuxCmd {
 
     #[instrument(err)]
     pub fn open_existing(name: &str) -> Result<()> {
+        let name = &Self::clean_name(name);
         info!(
             "Attempting to open existing Tmux session with name: {:?}!",
             name,
@@ -88,11 +91,19 @@ impl TmuxCmd {
 
     #[instrument]
     pub fn list_sessions() -> Result<Vec<String>> {
+        let current_session = Self::get_current_session();
         Ok(
             String::from_utf8_lossy(&wrap_command(Command::new("tmux").arg("ls"))?.stdout)
                 .trim_end()
                 .split('\n')
-                .map(|s| s.split(':').collect::<Vec<_>>()[0].to_string())
+                .map(|s| {
+                    let sess = s.split(':').collect::<Vec<_>>()[0].to_string();
+                    if current_session == sess {
+                        format!("{sess} (current)")
+                    } else {
+                        sess
+                    }
+                })
                 .filter(|s| !s.is_empty())
                 .collect(),
         )
@@ -116,11 +127,13 @@ impl TmuxCmd {
 
     #[instrument(err)]
     pub fn kill_sessions(sessions: &[String], current_session: &str) -> Result<()> {
+        let current_session = &Self::clean_name(current_session);
         sessions
             .iter()
-            .filter(|s| *s != current_session)
+            .map(|s| Self::clean_name(s))
+            .filter(|s| s != current_session)
             .for_each(|s| {
-                if Self::kill_session(s).is_ok() {
+                if Self::kill_session(&s).is_ok() {
                     if s.is_empty() {
                         warn!("No session picked");
                     } else {
@@ -168,6 +181,10 @@ impl TmuxCmd {
 }
 
 impl TmuxCmd {
+    pub fn clean_name(name: &str) -> String {
+        name.replace(" (current)", "")
+    }
+
     pub fn create_new_detached_attach_if_exists_cmd(name: &str, path: &Path) -> Self {
         Self {
             cmd: "new-session".to_string(),
@@ -188,12 +205,13 @@ impl TmuxCmd {
     }
 
     pub fn create_new_attached_attach_if_exists_cmd(name: &str, path: &Path) -> Self {
+        let name = Self::clean_name(name);
         Self {
             cmd: "new-session".to_string(),
             args: vec![
                 "-A".to_string(),
                 "-s".to_string(),
-                name.to_string(),
+                name,
                 "-c".to_string(),
                 path.to_str().unwrap_or_default().to_string(),
             ],
@@ -202,6 +220,7 @@ impl TmuxCmd {
 
     #[instrument(err)]
     fn create_new_attached_attach_if_exists(name: &str, path: &Path) -> Result<Output> {
+        let name = &Self::clean_name(name);
         Self::create_new_attached_attach_if_exists_cmd(name, path).run()
     }
 
@@ -232,6 +251,7 @@ impl TmuxCmd {
 
     #[instrument(err)]
     fn switch(to_name: &str) -> Result<Output> {
+        let to_name = &Self::clean_name(to_name);
         wrap_command(Command::new("tmux").args(["switch-client", "-t", to_name]))
     }
 
@@ -249,6 +269,7 @@ impl TmuxCmd {
 
     #[instrument]
     pub fn has_session_cmd(project_name: &str) -> Self {
+        let project_name = Self::clean_name(project_name);
         Self {
             cmd: "has-session".to_string(),
             args: vec!["-t".to_string(), format!("={}", project_name)],
@@ -263,6 +284,7 @@ impl TmuxCmd {
     }
 
     pub fn kill_session_cmd(session_name: &str) -> Self {
+        let session_name = Self::clean_name(session_name);
         Self {
             cmd: "kill-session".to_string(),
             args: vec!["-t".to_string(), format!("{}", session_name)],

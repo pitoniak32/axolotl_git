@@ -36,7 +36,7 @@ impl Multiplexer for Multiplexers {
     fn open(self, path: &Path, name: &str) -> Result<()> {
         match self {
             Self::Tmux => {
-                TmuxCmd::open(path, name)?;
+                TmuxCmd::open_new(path, name)?;
             }
         }
         Ok(())
