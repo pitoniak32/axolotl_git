@@ -21,6 +21,8 @@ use crate::{
     },
 };
 
+use super::project_type::ResolvedProject;
+
 #[derive(Args, Debug)]
 pub struct SessionArgs {
     #[arg(short, long, env(DEFAULT_MULTIPLEXER_KEY))]
@@ -132,6 +134,12 @@ pub enum ProjectSubcommand {
         proj_args: ProjectArgs,
         #[clap(flatten)]
         filter_args: FilterArgs,
+    },
+    /// Edit dotfiles repo
+    #[clap(visible_alias = "df")]
+    Dotfiles {
+        #[clap(flatten)]
+        sess_args: SessionArgs,
     },
     /// Clone a new repo into your projects dir.
     New {
@@ -259,7 +267,7 @@ impl ProjectSubcommand {
                     "using [{:?}] projects file.",
                     proj_args.projects_config_path
                 );
-                let mut project_directory = ResolvedProjectDirectory::new(
+                let project_directory = ResolvedProjectDirectory::new(
                     &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
                 )?;
                 if project_directory
@@ -289,6 +297,17 @@ impl ProjectSubcommand {
                     tags: BTreeSet::new(),
                 }])?;
                 println!("project was added to your root project_directory config.\nYou can now move it to a different group manually.");
+                Ok(())
+            }
+            Self::Dotfiles { sess_args } => {
+                let project = ResolvedProject::new(
+                    &PathBuf::try_from(ConfigEnvKey::Home)?,
+                    "git@github.com:pitoniak32/.dotfiles.git",
+                    BTreeSet::from(["dotfiles".to_string()]),
+                )?;
+                sess_args
+                    .multiplexer
+                    .open(&project.path, &project.get_safe_name())?;
                 Ok(())
             }
             Self::Report {
@@ -368,7 +387,7 @@ impl ProjectSubcommand {
                 proj_args,
                 directory,
             } => {
-                let mut project_directory_file = ResolvedProjectDirectory::new(
+                let project_directory_file = ResolvedProjectDirectory::new(
                     &ConfigProjectDirectory::new(&proj_args.projects_config_path)?,
                 )?;
 
@@ -472,7 +491,7 @@ impl ProjectSubcommand {
                     #[cfg(target_os = "linux")]
                     Command::new("xdg-open").arg(uri).output()?;
                     #[cfg(target_os = "macos")]
-                    Command::new("open -g").arg(uri.clone()).output()?;
+                    Command::new("open -g").arg(uri).output()?;
                 }
                 Ok(())
             }
