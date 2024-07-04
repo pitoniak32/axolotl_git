@@ -5,8 +5,8 @@ receivers:
       grpc:
 
 exporters:
-  logging:
-    loglevel: debug
+  debug:
+    verbosity: detailed
     
   otlp/jaeger:
     endpoint: jaeger-all-in-one:4317
@@ -38,13 +38,9 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [logging, otlp/jaeger]
+      exporters: [debug, otlp/jaeger]
       processors: [batch]
     metrics:
       receivers: [otlp]
-      exporters: [logging]
-      processors: [batch]
-    logs:
-      receivers: [otlp]
-      exporters: [logging]
+      exporters: [debug]
       processors: [batch]
