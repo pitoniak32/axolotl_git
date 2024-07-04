@@ -63,17 +63,20 @@ Options:
 
 ## Tracing
 
-This cli is instrumented with tokio tracing. If you increase the verbosity of the cli you will see more logs with details that can help with troubleshooting.
+This CLI is instrumented with [Tokio Tracing](https://github.com/tokio-rs/tracing?tab=readme-ov-file#overview). If you increase the verbosity of the cli you will see more logs with details that can help with troubleshooting.
 
 To modify the verbosity of the logs, use:
 - `-v` or `-q` for the console output.
+
+To modify the verbosity of the otel traces, use:
 - `RUST_LOG=<trace,debug,info,warn,error>` for the traces that are shipped to the optional OTEL collector. (see [this](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html#directives) for more advanced options)
+- A more advanced filter could look like `RUST_LOG=warn,axolotl_git=info`, meaning global level is `warn`, and traces under target `axolotl_git` are info.
 
 By default the otel collector layer is not added. If you would like traces to be exported to a collector, you should set the environment variable `OTEL_COLLECTOR_URL` to a url where your collector is running. This will configure the cli to export your traces with otlp to your collector. They can then be shipped out to any exporter of your choosing.
 
 You can try this with the `docker-compose.yml`, and `otel-collector-config.yml` files in this repo.
 1. `docker-compose up -d`.
-2. `OTEL_COLLECTOR_URL=http://localhost:4317/v1/traces axl project open -m tmux -vvvv`.
+2. `OTEL_COLLECTOR_URL=grpc://localhost:4317 RUST_LOG=info axl project open -m tmux`.
 3. open `http://localhost:16686/search` in your browser.
 
 ### References:
