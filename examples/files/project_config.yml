@@ -1,4 +1,0 @@
- projects_directory: /tmp/examples/
- include:
-   - examples/files/group_global.yml
-

@@ -5,9 +5,20 @@ use std::{
 };
 
 use anyhow::Result;
+use clap::ValueEnum;
 use tracing::{instrument, trace, warn};
 
-use crate::project::subcommand::OutputFormat;
+#[derive(ValueEnum, Debug, Clone)]
+pub enum OutputFormat {
+    /// rust debug print.
+    Debug,
+    /// pretty printed json.
+    Json,
+    /// raw printed json.
+    JsonR,
+    /// yaml.
+    Yaml,
+}
 
 #[instrument(err)]
 pub fn wrap_command(command: &mut Command) -> Result<Output> {
@@ -50,23 +61,4 @@ pub fn get_directories(path: &Path) -> Result<Vec<PathBuf>> {
             }
         })
         .collect())
-}
-
-pub fn formatted_print<T>(output: &OutputFormat, value: T) -> Result<()>
-where
-    T: std::fmt::Debug + serde::Serialize,
-{
-    match output {
-        OutputFormat::Debug => {
-            println!("{:#?}", value);
-        }
-        OutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(&value)?)
-        }
-        OutputFormat::Yaml => println!("{}", serde_yaml::to_string(&value)?),
-        OutputFormat::JsonR => {
-            println!("{}", serde_json::to_string(&value)?)
-        }
-    }
-    Ok(())
 }

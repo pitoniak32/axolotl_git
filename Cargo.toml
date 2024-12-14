@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 authors = ["David Pitoniak"]
 repository = "https://github.com/pitoniak32/axolotl_git"
-description = "project management cli"
+description = "Tmux session management CLI"
 keywords = ["project", "cli", "git", "repository"]
 
 [lib]
@@ -16,27 +16,11 @@ path = "src/lib.rs"
 name = "axl"
 path = "src/main.rs"
 
-[[example]]
-name = "list_projects"
-
-[[example]]
-name = "list_tags"
-
-[dependencies.git_lib]
-# version = "0.1.1"
-path = "../git_repo/git_lib"
-
 [dependencies]
 # tracing
-tokio = { version = "1.36.0", features = ["full"] }
 tracing = "0.1"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "registry"] }
-tracing-opentelemetry = "0.22.0"
-opentelemetry-otlp = "0.14.0"
-opentelemetry_sdk = { version = "0.21.2", features = ["trace", "rt-tokio"] }
-opentelemetry-semantic-conventions = "0.13.0"
-opentelemetry = "0.21.0"
 
 # error handling
 anyhow = "1.0.71"

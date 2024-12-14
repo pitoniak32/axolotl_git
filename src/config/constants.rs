@@ -8,8 +8,6 @@ pub const HOME_DIR_KEY: &str = "HOME";
 pub const XDG_CONFIG_HOME_DIR_KEY: &str = "XDG_CONFIG_HOME";
 pub const XDG_DATA_HOME_DIR_KEY: &str = "XDG_DATA_HOME";
 pub const XDG_STATE_HOME_DIR_KEY: &str = "XDG_STATE_HOME";
-pub const DEFAULT_MULTIPLEXER_KEY: &str = "AXL_DEFAULT_MULTIPLEXER";
-pub const DEFAULT_PROJECTS_CONFIG_PATH_KEY: &str = "AXL_PROJECTS_CONFIG_PATH";
 pub const DEFAULT_DECORATIONS_KEY: &str = "AXL_DECORATIONS";
 
 // version string constants
