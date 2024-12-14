@@ -1,4 +1,0 @@
-tags: ['global']
-include:
-  - examples/files/group_clis.yml
-  - examples/files/group_libs.yml

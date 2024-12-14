@@ -10,8 +10,6 @@ use predicates::prelude::predicate;
 #[rstest]
 #[case::no_cmd_no_flag(vec![], vec![], "Usage: axl [OPTIONS] <COMMAND>")]
 #[case::no_cmd_with_flag(vec!["-v"], vec![], "error: 'axl' requires a subcommand but one was not provided")]
-#[case::project_cmd_no_sub_cmd(vec!["project"], vec![], "Usage: axl project [OPTIONS] <COMMAND>")]
-#[case::project_cmd_open_sub_cmd(vec!["project", "menu"], vec![("AXL_PROJECTS_CONFIG_PATH", "/test/file/path.yml")], "Usage: axl project menu --projects-config-path <PROJECTS_CONFIG_PATH> --multiplexer <MULTIPLEXER>")]
 fn axl_project_no_args(
     #[case] args: Vec<&str>,
     #[case] envs: Vec<(&str, &str)>,
@@ -36,17 +34,3 @@ fn axl_project_no_args(
 
     Ok(())
 }
-
-// #[test]
-// fn find_content_in_file() -> Result<(), Box<dyn std::error::Error>> {
-//     let file = NamedTempFile::new("sample.txt")?;
-//     file.write_str("A test\nActual content\nMore content\nAnother test")?;
-//
-//     let mut cmd = Command::cargo_bin("grrs")?;
-//     cmd.arg("test").arg(file.path());
-//     cmd.assert()
-//         .success()
-//         .stdout(predicate::str::contains("A test\nAnother test"));
-//
-//     Ok(())
-// }

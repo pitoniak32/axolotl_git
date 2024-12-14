@@ -6,8 +6,8 @@ use tracing::trace;
 use super::{
     config_file::DecorationOption,
     constants::{
-        DEFAULT_DECORATIONS_KEY, DEFAULT_MULTIPLEXER_KEY, HOME_DIR_KEY, XDG_CONFIG_HOME_DIR_KEY,
-        XDG_DATA_HOME_DIR_KEY, XDG_STATE_HOME_DIR_KEY,
+        DEFAULT_DECORATIONS_KEY, HOME_DIR_KEY, XDG_CONFIG_HOME_DIR_KEY, XDG_DATA_HOME_DIR_KEY,
+        XDG_STATE_HOME_DIR_KEY,
     },
 };
 
@@ -16,7 +16,6 @@ pub enum ConfigEnvKey {
     XDGConfigHome,
     XDGDataHome,
     XDGStateHome,
-    DefaultMultiplexer,
     Decorations,
 }
 
@@ -27,7 +26,6 @@ impl ConfigEnvKey {
             Self::XDGConfigHome => XDG_CONFIG_HOME_DIR_KEY,
             Self::XDGDataHome => XDG_DATA_HOME_DIR_KEY,
             Self::XDGStateHome => XDG_STATE_HOME_DIR_KEY,
-            Self::DefaultMultiplexer => DEFAULT_MULTIPLEXER_KEY,
             Self::Decorations => DEFAULT_DECORATIONS_KEY,
         }
     }
@@ -38,7 +36,6 @@ impl ConfigEnvKey {
             Self::XDGConfigHome => "",
             Self::XDGDataHome => "",
             Self::XDGStateHome => "",
-            Self::DefaultMultiplexer => "",
             Self::Decorations => "",
         }
     }

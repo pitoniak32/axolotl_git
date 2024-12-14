@@ -4,25 +4,24 @@ use clap::Parser;
 use cli::Cli;
 use colored::Colorize;
 use inquire::Text;
-use opentelemetry::KeyValue;
-use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::Resource;
 use std::{env, process::exit, time::Duration};
-use tokio::time::sleep;
-use tracing::{error, info_span, metadata::LevelFilter};
+use tracing::{error, info_span};
 use tracing_log::AsTrace;
-use tracing_subscriber::{
-    prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
-};
 use uuid::Uuid;
+
+use tracing_subscriber::fmt;
+use tracing_subscriber::prelude::*;
 
 pub mod cli;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let cli: Cli = Cli::parse();
 
-    configure_tracing(cli.args.verbosity.log_level_filter().as_trace())?;
+    // set layer for log subscriber
+    tracing_subscriber::registry()
+        .with(cli.args.verbosity.log_level_filter().as_trace())
+        .with(fmt::layer().pretty())
+        .init();
 
     // So the span and guard are dropped before shutting down tracer provider.
     {
@@ -54,10 +53,10 @@ async fn main() -> Result<()> {
                             Text::new("Press ENTER to continue...").prompt()?;
                         }
                         OnError::ShortDelay => {
-                            sleep(Duration::from_millis(500)).await;
+                            std::thread::sleep(Duration::from_millis(500));
                         }
                         OnError::LongDelay => {
-                            sleep(Duration::from_millis(5000)).await;
+                            std::thread::sleep(Duration::from_millis(5000));
                         }
                     }
                     exit(1)
@@ -71,56 +70,6 @@ async fn main() -> Result<()> {
             }
         }
     }
-
-    // This is needed to export all remaining spans before exiting.
-    opentelemetry::global::shutdown_tracer_provider();
-
-    Ok(())
-}
-
-/// Amazing video on how this works: https://youtu.be/21rtHinFA40?si=vgARg2zxZ0ixC-yu
-fn configure_tracing(log_filter: LevelFilter) -> Result<()> {
-    tracing_subscriber::registry()
-        .with(
-            // set layer for log subscriber
-            tracing_subscriber::fmt::layer()
-                .pretty()
-                .with_filter(log_filter),
-        )
-        .with(std::env::var("OTEL_COLLECTOR_URL").map_or_else(
-            |_| None,
-            |url| {
-                Some(
-                    tracing_opentelemetry::layer()
-                        .with_tracer(
-                            opentelemetry_otlp::new_pipeline()
-                                .tracing()
-                                .with_exporter(
-                                    opentelemetry_otlp::new_exporter()
-                                        .tonic()
-                                        .with_endpoint(url),
-                                )
-                                .with_trace_config(
-                                    opentelemetry_sdk::trace::config().with_resource(
-                                        Resource::new(vec![KeyValue::new(
-                                        opentelemetry_semantic_conventions::resource::SERVICE_NAME
-                                            .to_string(),
-                                        env!("CARGO_PKG_NAME"),
-                                    )]),
-                                    ),
-                                )
-                                .install_batch(opentelemetry_sdk::runtime::Tokio)
-                                .expect("Failed creating the tracer!"),
-                        )
-                        .with_filter(
-                            // If no `RUST_LOG` is provided use info.
-                            tracing_subscriber::EnvFilter::try_from_default_env()
-                                .unwrap_or_else(|_| "info".into()),
-                        ),
-                )
-            },
-        ))
-        .init();
 
     Ok(())
 }

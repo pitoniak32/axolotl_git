@@ -14,15 +14,15 @@ use axl_lib::{
         },
     },
     error::Error,
-    helper::formatted_print,
-    multiplexer::Multiplexer,
-    project::subcommand::{OutputFormat, ProjectSubcommand, SessionArgs},
+    fzf::FzfCmd,
+    tmux::TmuxCmd,
+    zoxide::ZoxideCmd,
 };
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::LogLevel;
 use colored::Colorize;
 use strum_macros::Display;
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, trace};
 
 #[derive(Parser, Debug)]
 #[command(author, version = AXL_VERSION_STR, about)]
@@ -114,24 +114,32 @@ impl Cli {
     }
 }
 
+#[derive(ValueEnum, Debug, Clone)]
+pub enum OutputFormat {
+    /// rust debug print.
+    Debug,
+    /// pretty printed json.
+    Json,
+    /// raw printed json.
+    JsonR,
+    /// yaml.
+    Yaml,
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+pub enum OnlyOptions {
+    /// only show name.
+    Name,
+    /// only show safe name.
+    SafeName,
+    /// only show remote.
+    Remote,
+}
+
 #[derive(Subcommand, Debug, Display)]
 pub enum Commands {
-    #[clap(subcommand, visible_alias = "p")]
-    /// Commands for managing projects.
-    ///
-    /// All commands are using the selected project directory.
-    #[strum()]
-    Project(ProjectSubcommand),
-
-    #[clap(visible_alias = "ls")]
-    /// Command to list sessions
-    ///
-    /// list your current multiplexer sessions.
-    #[strum()]
-    List {
-        #[clap(flatten)]
-        sess_args: SessionArgs,
-    },
+    #[clap(visible_alias = "p")]
+    ProjectMenu,
 
     Info {
         #[arg(short, long, value_enum, default_value_t=OutputFormat::Json)]
@@ -140,14 +148,18 @@ pub enum Commands {
 }
 
 impl Commands {
-    #[instrument(skip(command, context, _args), err)]
-    fn handle(command: &Self, context: &AxlContext, _args: &SharedArgs) -> Result<()> {
+    #[instrument(skip(command, _context, _args), err)]
+    fn handle(command: &Self, _context: &AxlContext, _args: &SharedArgs) -> Result<()> {
         match command {
-            Self::Project(subcommand) => {
-                ProjectSubcommand::handle_cmd(subcommand, context)?;
-            }
-            Self::List { sess_args } => {
-                println!("{}", sess_args.multiplexer.get_sessions()?.join("\n"));
+            Self::ProjectMenu => {
+                trace!("picking from existing sessions...");
+                let sessions = TmuxCmd::list_sessions()?;
+                let picked_session = &FzfCmd::find_vec(sessions.clone())?;
+                if !sessions.contains(picked_session) {
+                    let zoxide_path = ZoxideCmd::query(picked_session)?;
+                    TmuxCmd::open(&zoxide_path, picked_session)?;
+                }
+                TmuxCmd::open_existing(picked_session)
             }
             Self::Info { output } => {
                 let info = CliInfo {
@@ -156,9 +168,9 @@ impl Commands {
                     commit: AXL_GIT_SHA_LONG,
                 };
                 formatted_print(output, info)?;
+                Ok(())
             }
         }
-        Ok(())
     }
 }
 
@@ -187,4 +199,23 @@ impl LogLevel for OffLevel {
     fn default() -> Option<tracing_log::log::Level> {
         None
     }
+}
+
+pub fn formatted_print<T>(output: &OutputFormat, value: T) -> Result<()>
+where
+    T: std::fmt::Debug + serde::Serialize,
+{
+    match output {
+        OutputFormat::Debug => {
+            println!("{:#?}", value);
+        }
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&value)?)
+        }
+        OutputFormat::Yaml => println!("{}", serde_yaml::to_string(&value)?),
+        OutputFormat::JsonR => {
+            println!("{}", serde_json::to_string(&value)?)
+        }
+    }
+    Ok(())
 }
