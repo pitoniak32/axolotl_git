@@ -155,11 +155,12 @@ impl Commands {
                 trace!("picking from existing sessions...");
                 let sessions = TmuxCmd::list_sessions()?;
                 let picked_session = &FzfCmd::find_vec(sessions.clone())?;
-                if !sessions.contains(picked_session) {
+                if sessions.contains(picked_session) {
+                    TmuxCmd::open_existing(&picked_session.replace(".", "_"))
+                } else {
                     let zoxide_path = ZoxideCmd::query(picked_session)?;
-                    TmuxCmd::open(&zoxide_path, picked_session)?;
+                    TmuxCmd::open(&zoxide_path, &picked_session.replace(".", "_"))
                 }
-                TmuxCmd::open_existing(picked_session)
             }
             Self::Info { output } => {
                 let info = CliInfo {
