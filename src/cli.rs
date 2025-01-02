@@ -155,11 +155,21 @@ impl Commands {
                 trace!("picking from existing sessions...");
                 let sessions = TmuxCmd::list_sessions()?;
                 let picked_session = &FzfCmd::find_vec(sessions.clone())?;
+                if picked_session == "" {
+                    return Ok(());
+                }
                 if sessions.contains(picked_session) {
                     TmuxCmd::open_existing(&picked_session.replace(".", "_"))
                 } else {
-                    let zoxide_path = ZoxideCmd::query(picked_session)?;
-                    TmuxCmd::open(&zoxide_path, &picked_session.replace(".", "_"))
+                    let zoxide_path = ZoxideCmd::query(picked_session.trim_end_matches('!'))?;
+                    TmuxCmd::open(
+                        &zoxide_path,
+                        zoxide_path
+                            .file_name()
+                            .expect("should always have filename")
+                            .to_str()
+                            .expect("should always be some"),
+                    )
                 }
             }
             Self::Info { output } => {

@@ -62,7 +62,12 @@ impl FzfCmd {
         // Ensure the child process has finished
         let output = fzf_child.wait_with_output()?;
 
-        let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let result = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .trim_start_matches("\'")
+            .to_string();
+
+        tracing::debug!("fzf result: {:?}", result);
 
         if output.status.success() && result.contains("\n") {
             let parts = result.split("\n").collect::<Vec<_>>();
