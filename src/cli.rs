@@ -155,6 +155,9 @@ impl Commands {
                 trace!("picking from existing sessions...");
                 let sessions = TmuxCmd::list_sessions()?;
                 let picked_session = &FzfCmd::find_vec(sessions.clone())?;
+                if picked_session.trim().is_empty() {
+                    return Ok(());
+                }
                 if sessions.contains(picked_session) {
                     TmuxCmd::open_existing(&picked_session.replace(".", "_"))
                 } else {
