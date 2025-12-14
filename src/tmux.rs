@@ -70,7 +70,7 @@ impl TmuxCmd {
             String::from_utf8_lossy(&wrap_command(Command::new(Self::CMD).arg("ls"))?.stdout)
                 .trim_end()
                 .split('\n')
-                .map(|s| s.split(':').collect::<Vec<_>>()[0].to_string())
+                .map(|s| s.split(':').nth(0).unwrap_or_default().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
         )
@@ -207,7 +207,7 @@ impl TmuxCmd {
             Command::new(Self::CMD)
                 .arg("has-session")
                 .arg("-t")
-                .arg(project_name),
+                .arg(format!("={project_name}")),
         )
         .is_ok_and(|o| o.status.success())
     }

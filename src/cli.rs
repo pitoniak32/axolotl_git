@@ -158,11 +158,34 @@ impl Commands {
                 if picked_session.trim().is_empty() {
                     return Ok(());
                 }
-                if sessions.contains(picked_session) {
-                    TmuxCmd::open_existing(&picked_session.replace(".", "_"))
+
+                if sessions.contains(
+                    &picked_session
+                        .replace(".", "_")
+                        .replace("$", "")
+                        .replace("^", "")
+                        .replace("'", "")
+                        .replace("!", ""),
+                ) {
+                    TmuxCmd::open_existing(
+                        &picked_session
+                            .replace(".", "_")
+                            .replace("$", "")
+                            .replace("^", "")
+                            .replace("'", "")
+                            .replace("!", ""),
+                    )
                 } else {
-                    let zoxide_path = ZoxideCmd::query(picked_session)?;
-                    TmuxCmd::open(&zoxide_path, &picked_session.replace(".", "_"))
+                    let zoxide_path = ZoxideCmd::query_interactive(picked_session)?;
+                    TmuxCmd::open(
+                        &zoxide_path,
+                        &picked_session
+                            .replace(".", "_")
+                            .replace("$", "")
+                            .replace("^", "")
+                            .replace("'", "")
+                            .replace("!", ""),
+                    )
                 }
             }
             Self::Info { output } => {
